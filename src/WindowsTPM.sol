@@ -13,19 +13,18 @@ contract WindowsTPM is AttestationVerificationBase {
         bytes certInfo;
     }
 
-    error Invalid_Data();
-    error Invalid_Signature();
-    error Certificate_Expired();
-    error Invalid_Certificate_Signature();
-    error Untrusted_Certificate_Chain();
-
     constructor(address _sigVerify, address _derParser) {
         sigVerify = ISigVerifyLib(_sigVerify);
         derParser = IDerParser(_derParser);
         _initializeOwner(msg.sender);
     }
 
-    function _verify(bytes memory attStmt, bytes memory authData, bytes memory clientData) internal view override {
+    function _verify(bytes memory attStmt, bytes memory authData, bytes memory clientData)
+        internal
+        view
+        override
+        returns (bool, string memory)
+    {
         AttStmt memory decoded = abi.decode(attStmt, (AttStmt));
 
         // Verify hash
@@ -35,7 +34,7 @@ contract WindowsTPM is AttestationVerificationBase {
             bytes20 extraData = CertInfoParser.parseExtraData(decoded.certInfo);
             // Verify certInfo's extraData equals to the hash of attToBeSigned
             if (extraData != expectedExtraData) {
-                revert Invalid_Data();
+                return (false, "invalid extra data");
             }
         }
 
@@ -43,7 +42,7 @@ contract WindowsTPM is AttestationVerificationBase {
         bool validSig =
             sigVerify.verifyAttStmtSignature(decoded.certInfo, decoded.sig, decoded.x5c[0].publicKey, decoded.alg);
         if (!validSig) {
-            revert Invalid_Signature();
+            return (false, "invalid sig");
         }
 
         // Verify the certificate chain
@@ -58,7 +57,7 @@ contract WindowsTPM is AttestationVerificationBase {
 
                 // Verify validity of the certificate
                 if (notBefore > block.timestamp || notAfter < block.timestamp) {
-                    revert Certificate_Expired();
+                    return (false, "invalid sig");
                 }
 
                 // Verify the signature of the certificate
@@ -66,7 +65,7 @@ contract WindowsTPM is AttestationVerificationBase {
                     cert.tbsCertificate, cert.signature, fatherCert.publicKey, cert.sigAlg
                 );
                 if (!validCertSig) {
-                    revert Invalid_Certificate_Signature();
+                    return (false, "invalid certificate signature");
                 }
 
                 // Check whether the certificate is a trusted CA certificate
@@ -79,8 +78,10 @@ contract WindowsTPM is AttestationVerificationBase {
                 }
             }
             if (!containsTrustedCACertificate) {
-                revert Untrusted_Certificate_Chain();
+                return (false, "untrusted certificate chain");
             }
         }
+
+        return (true, "");
     }
 }

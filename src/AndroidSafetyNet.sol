@@ -22,20 +22,18 @@ contract AndroidSafetyNet is AttestationVerificationBase {
         ISigVerifyLib.Certificate[] x5c;
     }
 
-    error Invalid_JWT_Signature();
-    error Invalid_JWT_Payload();
-    error Certificate_Expired();
-    error Invalid_Leaf_Certificate_AltSubjectName();
-    error Invalid_Certificate_Signature();
-    error Untrusted_Certificate_Chain();
-
     constructor(address _sigVerify, address _derParser) {
         sigVerify = ISigVerifyLib(_sigVerify);
         derParser = IDerParser(_derParser);
         _initializeOwner(msg.sender);
     }
 
-    function _verify(bytes memory attStmt, bytes memory authData, bytes memory clientData) internal view override {
+    function _verify(bytes memory attStmt, bytes memory authData, bytes memory clientData)
+        internal
+        view
+        override
+        returns (bool, string memory)
+    {
         AttStmt memory decoded = abi.decode(attStmt, (AttStmt));
 
         // Step 1: Verify jwt signature
@@ -44,7 +42,7 @@ contract AndroidSafetyNet is AttestationVerificationBase {
             bytes memory signatureBytes = Base64.decode(decoded.jwtSignature);
             bool validSig = sigVerify.verifyAttStmtSignature(tbs, signatureBytes, decoded.x5c[0].publicKey, decoded.alg);
             if (!validSig) {
-                revert Invalid_JWT_Signature();
+                return (false, "invalid JWT sig");
             }
         }
 
@@ -66,26 +64,26 @@ contract AndroidSafetyNet is AttestationVerificationBase {
                     string memory parsedNonce = JSONParserLib.decodeString(content[i].value());
                     bytes memory decodedNonce = Base64.decode(parsedNonce);
                     if (decodedNonce.length != 32 || expectedNonce != bytes32(decodedNonce)) {
-                        revert Invalid_JWT_Payload();
+                        return (false, "invalid JWT Payload");
                     }
                     validNonce = true;
                 } else if (decodedKey.eq("ctsProfileMatch")) {
                     string memory value = content[i].value();
                     if (!value.eq(EXPECTED_TRUE)) {
-                        revert Invalid_JWT_Payload();
+                        return (false, "invalid JWT Payload");
                     }
                     validCtsProfile = true;
                 } else if (decodedKey.eq("basicIntegrity")) {
                     string memory value = content[i].value();
                     if (!value.eq(EXPECTED_TRUE)) {
-                        revert Invalid_JWT_Payload();
+                        return (false, "invalid JWT Payload");
                     }
                     validBasicIntegrity = true;
                 }
             }
 
             if (!validNonce || !validCtsProfile || !validBasicIntegrity) {
-                revert Invalid_JWT_Payload();
+                return (false, "invalid JWT Payload");
             }
         }
 
@@ -103,14 +101,14 @@ contract AndroidSafetyNet is AttestationVerificationBase {
 
                 // Verify validity of the certificate
                 if (notBefore > block.timestamp || notAfter < block.timestamp) {
-                    revert Certificate_Expired();
+                    return (false, "expired certificate");
                 }
 
                 // Verify altSubjectName if the certificate is the leaf certificate
                 if (i == 0) {
                     // 0x82126174746573742e616e64726f69642e636f6d is the der encoding of "DNS: attest.android.com"
                     if (!BytesUtils.compareBytes(subjectAltName, hex"82126174746573742e616e64726f69642e636f6d")) {
-                        revert Invalid_Leaf_Certificate_AltSubjectName();
+                        return (false, "invalid leaf certificate altSubjectName");
                     }
                 }
 
@@ -119,7 +117,7 @@ contract AndroidSafetyNet is AttestationVerificationBase {
                     cert.tbsCertificate, cert.signature, fatherCert.publicKey, cert.sigAlg
                 );
                 if (!validSig) {
-                    revert Invalid_Certificate_Signature();
+                    return (false, "invalid certificate signature");
                 }
 
                 // Check whether the certificate is a trusted CA certificate
@@ -133,8 +131,10 @@ contract AndroidSafetyNet is AttestationVerificationBase {
             }
 
             if (!containsTrustedCACertificate) {
-                revert Untrusted_Certificate_Chain();
+                return (false, "untrusted certificate chain");
             }
         }
+
+        return (true, "");
     }
 }

@@ -11,18 +11,18 @@ contract Yubikey is AttestationVerificationBase {
         ISigVerifyLib.Certificate[] x5c;
     }
 
-    error Invalid_Signature();
-    error Certificate_Expired();
-    error Invalid_Certificate_Signature();
-    error Untrusted_Certificate_Chain();
-
     constructor(address _sigVerify, address _derParser) {
         sigVerify = ISigVerifyLib(_sigVerify);
         derParser = IDerParser(_derParser);
         _initializeOwner(msg.sender);
     }
 
-    function _verify(bytes memory attStmt, bytes memory authData, bytes memory clientData) internal view override {
+    function _verify(bytes memory attStmt, bytes memory authData, bytes memory clientData)
+        internal
+        view
+        override
+        returns (bool, string memory)
+    {
         AttStmt memory decoded = abi.decode(attStmt, (AttStmt));
 
         // Step 1: Verify attestation statement signature
@@ -34,7 +34,7 @@ contract Yubikey is AttestationVerificationBase {
             bool validSig =
                 sigVerify.verifyAttStmtSignature(message, decoded.signature, decoded.x5c[0].publicKey, decoded.alg);
             if (!validSig) {
-                revert Invalid_Signature();
+                return (false, "invalid sig");
             }
         }
 
@@ -51,7 +51,7 @@ contract Yubikey is AttestationVerificationBase {
 
                 // Verify validity of the certificate
                 if (notBefore > block.timestamp || notAfter < block.timestamp) {
-                    revert Certificate_Expired();
+                    return (false, "expired certificate");
                 }
 
                 // Verify the signature of the certificate
@@ -59,7 +59,7 @@ contract Yubikey is AttestationVerificationBase {
                     cert.tbsCertificate, cert.signature, fatherCert.publicKey, cert.sigAlg
                 );
                 if (!validSig) {
-                    revert Invalid_Certificate_Signature();
+                    return (false, "invalid certificate signature");
                 }
 
                 // Check whether the certificate is a trusted CA certificate
@@ -73,8 +73,10 @@ contract Yubikey is AttestationVerificationBase {
             }
 
             if (!containsTrustedCACertificate) {
-                revert Untrusted_Certificate_Chain();
+                return (false, "untrusted certificate chain");
             }
         }
+
+        return (true, "");
     }
 }

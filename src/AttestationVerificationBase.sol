@@ -14,14 +14,16 @@ abstract contract AttestationVerificationBase is Ownable {
 
     mapping(bytes32 => bool) internal isCACertificate;
 
-    error Invalid_Client_Data();
-    error Invalid_Challenge();
-
     function verifyAttStmt(bytes32 challenge, bytes memory attStmt, bytes memory authData, bytes memory clientData)
         external
+        view
         virtual
+        returns (bool success, string memory reason)
     {
-        _verifyChallenge(challenge, clientData);
+        (bool challengeVerified, string memory challengeFailedReason) = _verifyChallenge(challenge, clientData);
+        if (!challengeVerified) {
+            return (false, challengeFailedReason);
+        }
         _verify(attStmt, authData, clientData);
     }
 
@@ -35,17 +37,26 @@ abstract contract AttestationVerificationBase is Ownable {
 
     // FUNCTIONS TO BE OVERWRITTEN
 
-    function _verify(bytes memory attStmt, bytes memory authData, bytes memory clientData) internal virtual {}
+    function _verify(bytes memory attStmt, bytes memory authData, bytes memory clientData)
+        internal
+        view
+        virtual
+        returns (bool, string memory)
+    {}
 
     // HELPER FUNCTIONS
 
-    function _verifyChallenge(bytes32 challenge, bytes memory clientData) internal pure {
+    function _verifyChallenge(bytes32 challenge, bytes memory clientData) internal pure returns (bool, string memory) {
         string memory clientDataJson = string(clientData);
-        (,, string memory parsedChallenge) = _parseClientDataJson(clientDataJson);
+        (bool clientDataParsed,,, string memory parsedChallenge) = _parseClientDataJson(clientDataJson);
+        if (!clientDataParsed) {
+            return (false, "invalid client data");
+        }
         string memory encodedInputChallenge = Base64.encode(bytes(LibString.toHexString(abi.encodePacked(challenge))));
         if (!parsedChallenge.eq(encodedInputChallenge)) {
-            revert Invalid_Challenge();
+            return (false, "invalid challenge");
         }
+        return (true, "");
     }
 
     function _base64UrlToBase64(string memory base64Url) internal pure returns (string memory) {
@@ -87,6 +98,7 @@ abstract contract AttestationVerificationBase is Ownable {
         internal
         pure
         returns (
+            bool success,
             string memory origin,
             string memory authType, // "webauthn.create" vs "webauthn.get"
             string memory challenge
@@ -111,12 +123,11 @@ abstract contract AttestationVerificationBase is Ownable {
             }
 
             if (originFound && typeFound && challengeFound) {
+                success = originFound && typeFound && challengeFound;
                 break;
             }
         }
 
-        if (!originFound || !typeFound || !challengeFound) {
-            revert Invalid_Client_Data();
-        }
+        return (success, origin, authType, challenge);
     }
 }
