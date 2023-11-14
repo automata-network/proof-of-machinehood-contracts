@@ -24,7 +24,7 @@ abstract contract AttestationVerificationBase is Ownable {
         if (!challengeVerified) {
             return (false, challengeFailedReason);
         }
-        _verify(attStmt, authData, clientData);
+        (success, reason) = _verify(attStmt, authData, clientData);
     }
 
     function addCACert(bytes32 hash) external onlyOwner {
