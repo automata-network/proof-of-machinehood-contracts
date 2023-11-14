@@ -14,12 +14,7 @@ abstract contract AttestationVerificationBase is Ownable {
 
     mapping(bytes32 => bool) internal isCACertificate;
 
-    function verifyAttStmt(
-        bytes memory challenge, 
-        bytes memory attStmt, 
-        bytes memory authData, 
-        bytes memory clientData
-    )
+    function verifyAttStmt(bytes memory challenge, bytes memory attStmt, bytes memory authData, bytes memory clientData)
         external
         view
         virtual
@@ -51,7 +46,11 @@ abstract contract AttestationVerificationBase is Ownable {
 
     // HELPER FUNCTIONS
 
-    function _verifyChallenge(bytes memory challenge, bytes memory clientData) internal pure returns (bool, string memory) {
+    function _verifyChallenge(bytes memory challenge, bytes memory clientData)
+        internal
+        pure
+        returns (bool, string memory)
+    {
         string memory clientDataJson = string(clientData);
         (bool clientDataParsed,,, string memory parsedChallenge) = _parseClientDataJson(clientDataJson);
         if (!clientDataParsed) {
