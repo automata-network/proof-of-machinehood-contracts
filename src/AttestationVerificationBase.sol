@@ -14,7 +14,12 @@ abstract contract AttestationVerificationBase is Ownable {
 
     mapping(bytes32 => bool) internal isCACertificate;
 
-    function verifyAttStmt(bytes32 challenge, bytes memory attStmt, bytes memory authData, bytes memory clientData)
+    function verifyAttStmt(
+        bytes memory challenge, 
+        bytes memory attStmt, 
+        bytes memory authData, 
+        bytes memory clientData
+    )
         external
         view
         virtual
@@ -46,13 +51,14 @@ abstract contract AttestationVerificationBase is Ownable {
 
     // HELPER FUNCTIONS
 
-    function _verifyChallenge(bytes32 challenge, bytes memory clientData) internal pure returns (bool, string memory) {
+    function _verifyChallenge(bytes memory challenge, bytes memory clientData) internal pure returns (bool, string memory) {
         string memory clientDataJson = string(clientData);
         (bool clientDataParsed,,, string memory parsedChallenge) = _parseClientDataJson(clientDataJson);
         if (!clientDataParsed) {
             return (false, "invalid client data");
         }
-        string memory encodedInputChallenge = Base64.encode(bytes(LibString.toHexString(abi.encodePacked(challenge))));
+        // Base64 encoded without padding
+        string memory encodedInputChallenge = Base64.encode(bytes(LibString.toHexString(challenge)), false, true);
         if (!parsedChallenge.eq(encodedInputChallenge)) {
             return (false, "invalid challenge");
         }

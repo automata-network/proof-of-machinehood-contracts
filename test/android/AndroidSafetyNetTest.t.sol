@@ -30,7 +30,7 @@ contract AndroidSafetyNetTest is Test, AndroidSafetyNetConstants {
     }
 
     function testAndroidSafetyNetAttestation() public {
-        bytes32 challenge = 0x000000000000000000000000c6219fd7c54c963a7ef13e04ef0f0d96ff826450;
+        bytes memory challenge = hex"000000000000000000000000c6219fd7c54c963a7ef13e04ef0f0d96ff826450";
         (bool verified,) = attestationContract.verifyAttStmt(challenge, encodedAttStmt, authData, clientDataJSON);
         assertTrue(verified);
     }
