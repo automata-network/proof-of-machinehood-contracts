@@ -1,17 +1,53 @@
-## Foundry
+# Machinehood Integration Contracts
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+This repo contains Solidity libraries that can be integrated with third-party smart contracts to perform on-chain verification on machinehood attestations. The devices that we currently support are:
 
-Foundry consists of:
+- Android
+- Windows
+- Yubikey
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+Solidity developers can simply import `AttestationVerificationBase.sol` to their contract regardless of the device type, since they all implement the `verifyAttStmt()` method. See example below:
 
-## Documentation
+```solidity
 
-https://book.getfoundry.sh/
+import {AttestationVerificationBase} from "@automata-network/machinehood-contracts/AttestationVerificationBase.sol";
+
+contract ExamplePOM {
+
+    AttestationVerificationBase android;
+    AttestationVerificationBase windows;
+    // ...
+
+    constructor(address _android, address _windows) {
+        android = AttestationVerificationBase(_android);
+        windows = AttestationVerificationBase(_windows);
+    }
+
+    /// @dev it only cares about Android, cuz Google rocks!
+    function verifyAndroidAttestation(
+        bool isAndroid,
+        bytes calldata challenge,
+        bytes calldata attStmt,
+        bytes calldata authData,
+        bytes calldata clientData
+    ) external returns (bool verified) {
+        // ...
+        
+        if (isAndroid) {
+            (verified, ) = android.verifyAttStmt(
+                challenge,
+                attStmt,
+                authData,
+                clientData
+            );
+        }
+    }
+
+}
+
+```
+
+# #BUIDL on POM 🛠️
 
 ## Usage
 
@@ -37,30 +73,4 @@ $ forge fmt
 
 ```shell
 $ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
 ```
