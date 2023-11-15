@@ -31,7 +31,6 @@ contract WindowsTPMTest is Test, WindowsTPMConstants {
 
     function testWindowsTPMAttestation() public {
         address wallet = 0x64188ea52BaF4B724E658036A339facC4F2ed723;
-        // bytes memory challenge = hex"000000000000000000000000dc3bda6d40f0e33e0dfa4aef9604b66195e6c5dc00000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000a4b10000000000000000000000000000000000000000000000000000000000000000";
         bytes memory challenge = abi.encode(wallet);
         (bool verified,) = attestationContract.verifyAttStmt(challenge, encodedAttStmt, authData, clientDataJSON);
         assertTrue(verified);
