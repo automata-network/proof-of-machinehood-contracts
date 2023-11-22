@@ -5,7 +5,6 @@ import "p256-verifier/P256.sol";
 
 import "./interfaces/ISigVerifyLib.sol";
 import "./RsaVerify.sol";
-// import "./EllipticCurveLib.sol";
 import "./BytesUtils.sol";
 
 contract SigVerifyLib is ISigVerifyLib {
@@ -102,7 +101,6 @@ contract SigVerifyLib is ISigVerifyLib {
         uint256 gy = uint256(bytes32(publicKey.substring(32, 32)));
 
         // Verify signature
-        // sigValid = EllipticCurveLib.validateSignature(uint256(sha256(tbs)), gx, gy, r, s);
         sigValid = P256.verifySignature(sha256(tbs), r, s, gx, gy);
     }
 }
