@@ -7,9 +7,6 @@ import "../src/Yubikey.sol";
 import "./deployment/LibScript.sol";
 
 contract Deploy is LibScript {
-
-    uint256 privateKey = vm.envUint("PRIVATE_KEY");
-
     function deployAndroidSafetyNet() public {
         vm.broadcast(privateKey);
         Lib memory lib = read();
