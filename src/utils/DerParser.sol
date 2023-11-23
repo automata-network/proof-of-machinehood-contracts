@@ -1,10 +1,13 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
 import "./interfaces/IDerParser.sol";
 import "./Asn1Decode.sol";
 import "./X509DateUtils.sol";
 import "./BytesUtils.sol";
+
+// Library for parsing DER-encoded X.509 certificates
+// NOTE: This library is not complete, it only supports parsing the fields we need for verifying the attestation
 
 contract DerParser is IDerParser {
     using Asn1Decode for bytes;
