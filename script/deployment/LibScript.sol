@@ -37,25 +37,29 @@ contract LibScript is Script {
         vm.startBroadcast(privateKey);
         DerParser derParser = new DerParser();
         SigVerifyLib sigVerifyLib = new SigVerifyLib();
+
+        console.log("[LOG] DerParser: ", address(derParser));
+        console.log("[LOG] SigVerifyLib: ", address(sigVerifyLib));
+
         vm.stopBroadcast();
 
-        string memory parent_object = "parent object";
-        string memory chainIdKey = vm.toString(block.chainid);
+        // string memory parent_object = "parent object";
+        // string memory chainIdKey = vm.toString(block.chainid);
 
-        vm.serializeAddress(chainIdKey, "DerParser", address(derParser));
-        string memory output = vm.serializeAddress(chainIdKey, "SigVerifyLib", address(sigVerifyLib));
+        // vm.serializeAddress(chainIdKey, "DerParser", address(derParser));
+        // string memory output = vm.serializeAddress(chainIdKey, "SigVerifyLib", address(sigVerifyLib));
 
-        string memory finalJson = vm.serializeString(
-            parent_object,
-            chainIdKey,
-            output
-        );
+        // string memory finalJson = vm.serializeString(
+        //     parent_object,
+        //     chainIdKey,
+        //     output
+        // );
 
-        string memory dir = string.concat(
-            vm.projectRoot(),
-            "/script/deployment/deploy"
-        );
-        string memory path = string.concat(dir, ".json");
-        vm.writeFile(path, finalJson);
+        // string memory dir = string.concat(
+        //     vm.projectRoot(),
+        //     "/script/deployment/deploy"
+        // );
+        // string memory path = string.concat(dir, ".json");
+        // vm.writeFile(path, finalJson);
     }
 }
