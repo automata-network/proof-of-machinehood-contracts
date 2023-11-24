@@ -12,6 +12,6 @@ for (( i=1; i<=$#; i++ )); do
     fi
 done
 
-forge script script/Deploy.sol --sig "deployAndroidSafetyNet()" --broadcast -vvvv --rpc-url ${RPC_URL} $VERIFY_COMMAND
-forge script script/Deploy.sol --sig "deployWindowsTPM()" --broadcast -vvvv --rpc-url ${RPC_URL} $VERIFY_COMMAND
-forge script script/Deploy.sol --sig "deployYubikey()" --broadcast -vvvv --rpc-url ${RPC_URL} $VERIFY_COMMAND
+forge script script/Deploy.sol --sig "deployAndroidSafetyNet()" --broadcast --rpc-url ${RPC_URL} $VERIFY_COMMAND | grep LOG
+forge script script/Deploy.sol --sig "deployWindowsTPM()" --broadcast --rpc-url ${RPC_URL} $VERIFY_COMMAND | grep LOG
+forge script script/Deploy.sol --sig "deployYubikey()" --broadcast --rpc-url ${RPC_URL} $VERIFY_COMMAND | grep LOG

@@ -12,4 +12,4 @@ for (( i=1; i<=$#; i++ )); do
     fi
 done
 
-forge script script/deployment/LibScript.sol --sig "deployLib()" --broadcast -vvvv --rpc-url ${RPC_URL} $VERIFY_COMMAND
+forge script script/deployment/LibScript.sol --sig "deployLib()" --broadcast --rpc-url ${RPC_URL} $VERIFY_COMMAND | grep LOG

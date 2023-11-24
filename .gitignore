@@ -2,10 +2,8 @@
 cache/
 out/
 
-# Ignores development broadcast logs
-broadcast/**/31337/
-broadcast/**/run-*.json
-!broadcast/**/run-latest.json
+# Ignores broadcast logs
+broadcast/
 
 # Docs
 docs/
