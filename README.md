@@ -80,7 +80,7 @@ Solidity developers can simply import `AttestationVerificationBase.sol` to their
 
 ```solidity
 
-import {AttestationVerificationBase} from "@automata-network/machinehood-contracts/AttestationVerificationBase.sol";
+import {AttestationVerificationBase} from "@automata-network/proof-of-machinehood-contracts/AttestationVerificationBase.sol";
 
 contract ExamplePOM {
 
