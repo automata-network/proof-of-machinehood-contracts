@@ -6,6 +6,7 @@ import "./SHA1.sol";
 
 // Referenced from adria0/SolRsaVerify - GPL-3.0 license
 // https://github.com/adria0/SolRsaVerify/blob/master/src/RsaVerify.sol
+// Added PKCSv1.5 SHA1 verification
 
 /*
     Copyright 2016, Adrià Massanet

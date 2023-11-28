@@ -1,5 +1,4 @@
-// SPDX-License-Identifier: MIT
-// Original source: https://github.com/JonahGroendal/asn1-decode
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
 // Referenced From PufferFinance/rave - Apache-2.0 license

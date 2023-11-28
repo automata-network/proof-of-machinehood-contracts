@@ -1,8 +1,16 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0
 
 pragma solidity ^0.8.0;
 
+// Library for parsing the date fields in X.509 certificates
+
 library X509DateUtils {
+
+    /*
+     * @dev Convert a DER-encoded time to a unix timestamp
+     * @param x509Time The DER-encoded time
+     * @return The unix timestamp
+     */
     function toTimestamp(bytes memory x509Time) internal pure returns (uint256) {
         uint16 yrs;
         uint8 mnths;
