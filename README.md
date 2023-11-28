@@ -1,12 +1,12 @@
-# Machinehood Contracts
+# Proof of Machinehood Contracts
 
-## What is Proof of Machinehood
-Proof of Machinehood is a verifiable attestation that proves ownership of a specific device. This repository contains Solidity libraries designed for integration with third-party smart contracts. These libraries enable on-chain verification of Machinehood attestations, ensuring secure and reliable confirmation of device ownership.
+## What is Proof of Machinehood(PoM)
+Proof of Machinehood(PoM) is a verifiable attestation that proves ownership of a specific device. This repository contains Solidity libraries designed for integration with third-party smart contracts. These libraries enable on-chain verification of PoM attestations, ensuring secure and reliable confirmation of device ownership.
 
-## How to Get the Machinehood Attestation
-The Machinehood attestation is a cryptographically-signed statement provided by users' devices. The format and content of this attestation can vary depending on the device type. This includes [SafetyNet Attestations](https://developer.android.com/privacy-and-security/safetynet/attestation) for Android phones, [TPM Key Attestations](https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/component-updates/tpm-key-attestation) for Windows devices, and [App Attestations](https://developer.apple.com/documentation/devicecheck/validating_apps_that_connect_to_your_server) for Apple devices.
+## How to Get the PoM Attestation
+The PoM attestation is a cryptographically-signed statement provided by users' devices. The format and content of this attestation can vary depending on the device type. This includes [SafetyNet Attestations](https://developer.android.com/privacy-and-security/safetynet/attestation) for Android phones, [TPM Key Attestations](https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/component-updates/tpm-key-attestation) for Windows devices, and [App Attestations](https://developer.apple.com/documentation/devicecheck/validating_apps_that_connect_to_your_server) for Apple devices.
 
-In this project, we utilize [Web Authentication](https://www.w3.org/TR/webauthn/#sec-authenticator-data) to acquire attestations from different devices. This approach allows us to gather attestations in a standardized manner, without delving into the specifics of each device type. Using Web Authentication to create credentials yields a signed data object known as the "attestation statement." This statement includes information about the credential and the device that created it. We use the attestation statement to substantiate the Machinehood of a device.
+In this project, we utilize [Web Authentication](https://www.w3.org/TR/webauthn/#sec-authenticator-data) to acquire attestations from different devices. This approach allows us to gather attestations in a standardized manner, without delving into the specifics of each device type. Using Web Authentication to create credentials yields a signed data object known as the "attestation statement." This statement includes information about the credential and the device that created it. We use the attestation statement to substantiate the PoM of a device.
 
 Experience it yourself with the [Proof of Machinehood Demo](https://pom.ata.network/) and attest your own device!
 
@@ -73,9 +73,9 @@ For more comprehensive information, please refer to the [complete verification p
 ## Does the Attestation Prove That Users Owns the Device?
 **No, the attestation itself cannot conclusively prove that users own the device.** It only confirms that the user had control over a specific device at the time of attestation generation. This is because generating the attestation requires completing device-specific authentication, such as entering a PIN code or using a fingerprint. However, it doesn't guarantee continued ownership or control of the device thereafter.
 
-**To be precise, attestation can only verify device ownership within a specific time frame.** For instance, when a user generates attestation, we can be certain they owned the device at that moment. The certainty of ownership decreases over time; it might drop to 98% after 5 minutes and further to 80% after a day. Therefore, when integrating the Machinehood library, you should consider how to interpret and utilize the attestation data based on the specific needs and context of your application.
+**To be precise, attestation can only verify device ownership within a specific time frame.** For instance, when a user generates an attestation, we can be certain they owned the device at that moment. However, the certainty of ownership naturally decreases over time. As an illustrative example, this might hypothetically drop to 98% after 5 minutes and further to 80% after a day, though these specific percentages are not actual measurements but rather are used to demonstrate the concept. Therefore, when integrating the PoM library, you should consider how to interpret and utilize the attestation data based on the specific needs and context of your application.
 
-## For Developers: Integrate with Machinehood
+## For Developers: Integrate with Proof of Machinehood
 Solidity developers can simply import `AttestationVerificationBase.sol` to their contract regardless of the device type, since they all implement the `verifyAttStmt()` method. See example below:
 
 ```solidity
