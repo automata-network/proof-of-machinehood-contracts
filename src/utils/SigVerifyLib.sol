@@ -107,6 +107,6 @@ contract SigVerifyLib is ISigVerifyLib {
         uint256 gy = uint256(bytes32(publicKey.substring(32, 32)));
 
         // Verify signature
-        sigValid = P256.verifySignature(sha256(tbs), r, s, gx, gy);
+        sigValid = P256.verifySignatureAllowMalleability(sha256(tbs), r, s, gx, gy);
     }
 }
