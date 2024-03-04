@@ -2,15 +2,12 @@
 pragma solidity ^0.8.0;
 
 import {NativeBase} from "./NativeBase.sol";
-
-import {ISigVerifyLib} from "../../utils/interfaces/ISigVerifyLib.sol";
-import {IDerParser} from "../../utils/interfaces/IDerParser.sol";
+import {IX509Helper} from "../interfaces/IX509Helper.sol";
 
 abstract contract NativeX5CBase is NativeBase {
-    
-    ISigVerifyLib public immutable sigVerify;
-    IDerParser public immutable derParser;
-    
+
+    IX509Helper public immutable x509Helper;
+
     /// @dev The CA Hash is a bytes32 value that is computed with the SHA256 hash of the values described below:
     /// @dev The tightly packed binary value of the issuer certificate's tbs, public key and signature.abi
     /// @dev This hash is stored to indicate that the issuer certificate is to be trusted.
@@ -21,9 +18,8 @@ abstract contract NativeX5CBase is NativeBase {
     /// @notice Issuer certificates are also known as "father certs".
     mapping(bytes32 => bool) internal isCACertificate;
 
-    constructor(address sigVerifyAddr, address derParserAddr) {
-        sigVerify = ISigVerifyLib(sigVerifyAddr);
-        derParser = IDerParser(derParserAddr);
+    constructor(address x509HelperAddr) {
+        x509Helper = IX509Helper(x509HelperAddr);
     }
 
     function addCACert(bytes32 hash) external virtual {}
