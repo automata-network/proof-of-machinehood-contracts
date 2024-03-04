@@ -17,10 +17,7 @@ contract LibScript is Script {
 
     /// @dev Reads deployed library addresses from lib.json on the current network
     function read() internal view returns (Lib memory lib) {
-        string memory dir = string.concat(
-            vm.projectRoot(),
-            "/script/deployment/lib"
-        );
+        string memory dir = string.concat(vm.projectRoot(), "/script/deployment/lib");
         string memory json = vm.readFile(string.concat(dir, ".json"));
         string memory chainSelector = string.concat(".", vm.toString(block.chainid));
         lib.sigVerifyLib = stdJson.readAddress(json, string.concat(chainSelector, ".SigVerifyLib"));

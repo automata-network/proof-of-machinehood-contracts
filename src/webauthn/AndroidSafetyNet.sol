@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "./AttestationVerificationBase.sol";
-import "./utils/BytesUtils.sol";
+import "../utils/BytesUtils.sol";
 
 contract AndroidSafetyNet is AttestationVerificationBase {
     using BytesUtils for bytes;

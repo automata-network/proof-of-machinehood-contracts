@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 import "./WindowsTPMConstants.sol";
-import "../../src/WindowsTPM.sol";
+import "../../src/webauthn/WindowsTPM.sol";
 import "../../src/utils/DerParser.sol";
 import "../../src/utils/SigVerifyLib.sol";
 

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "../src/AndroidSafetyNet.sol";
-import "../src/WindowsTPM.sol";
-import "../src/Yubikey.sol";
+import "../src/webauthn/AndroidSafetyNet.sol";
+import "../src/webauthn/WindowsTPM.sol";
+import "../src/webauthn/Yubikey.sol";
 
 import "forge-std/Script.sol";
 
@@ -11,7 +11,6 @@ import "forge-std/Script.sol";
 // import "./deployment/LibScript.sol";
 
 contract Deploy is Script {
-
     uint256 internal privateKey = vm.envUint("PRIVATE_KEY");
     address sigVerifyLib = vm.envAddress("SIG_VERIFY_LIB");
     address derParser = vm.envAddress("DER_PARSER");

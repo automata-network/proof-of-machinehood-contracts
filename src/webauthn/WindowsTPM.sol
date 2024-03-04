@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
-import "./utils/SHA1.sol";
-import "./utils/CertInfoParser.sol";
+import "../utils/SHA1.sol";
+import "../utils/CertInfoParser.sol";
 import "./AttestationVerificationBase.sol";
 
 contract WindowsTPM is AttestationVerificationBase {

@@ -5,7 +5,6 @@ pragma solidity ^0.8.0;
 // Library for parsing the date fields in X.509 certificates
 
 library X509DateUtils {
-
     /*
      * @dev Convert a DER-encoded time to a unix timestamp
      * @param x509Time The DER-encoded time
