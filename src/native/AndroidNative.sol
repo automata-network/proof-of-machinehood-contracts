@@ -32,20 +32,19 @@ struct RootOfTrust {
 }
 
 abstract contract AndroidNative is NativeX5CBase {
-
     error Invalid_App_Id(bytes32 appIdFound);
     error Unacceptable_Security_Level(SecurityLevel securityLevel);
     error Invalid_Root_Of_Trust();
     error Invalid_Cert_Chain();
     error Invalid_Android_Id();
-    
+
     /// @dev configure valid Android App ID that generates the keypair
     function appId() public view virtual returns (bytes32);
 
     function acceptableSecurityLevel(SecurityLevel securityLevel) public view virtual returns (bool);
 
     function checkRootOfTrust(RootOfTrust memory rootOfTrust) public view virtual returns (bool);
-    
+
     function _verifyPayload(string calldata deviceIdentity, bytes calldata payload)
         internal
         view
@@ -53,15 +52,13 @@ abstract contract AndroidNative is NativeX5CBase {
         returns (bytes memory attestationData)
     {
         AndroidPayload memory payloadObj = abi.decode(payload, (AndroidPayload));
-        (bool certChainVerified, uint256 attestationCertIndex, bytes memory attestedPubKey) = _verifyCertChain(payloadObj.x5c);
+        (bool certChainVerified, uint256 attestationCertIndex, bytes memory attestedPubKey) =
+            _verifyCertChain(payloadObj.x5c);
         if (!certChainVerified) {
             revert Invalid_Cert_Chain();
         }
-        (
-            bytes32 attestationApplicationId,
-            SecurityLevel securityLevel,
-            RootOfTrust memory rootOfTrust
-        ) = _parseAttestationCert(payloadObj.x5c[attestationCertIndex]);
+        (bytes32 attestationApplicationId, SecurityLevel securityLevel, RootOfTrust memory rootOfTrust) =
+            _parseAttestationCert(payloadObj.x5c[attestationCertIndex]);
         if (attestationApplicationId != appId()) {
             revert Invalid_App_Id(attestationApplicationId);
         }
@@ -76,26 +73,30 @@ abstract contract AndroidNative is NativeX5CBase {
             revert Invalid_Android_Id();
         }
     }
-    
+
     /// @dev we cannot assume that the key attestation certificate extension is in the leaf certificate
     /// See https://developer.android.com/privacy-and-security/security-key-attestation#verifying for more info
-    function _verifyCertChain(bytes[] memory x5c) internal view returns (
-        bool verified,
-        uint256 attestationCertIndex,
-        bytes memory attestedPubkey
-    ) {
+    function _verifyCertChain(bytes[] memory x5c)
+        internal
+        view
+        returns (bool verified, uint256 attestationCertIndex, bytes memory attestedPubkey)
+    {
         // TODO
     }
 
-    function _parseAttestationCert(bytes memory attestationCert) private pure returns (
-        bytes32 attestationApplicationId,
-        SecurityLevel securityLevel,
-        RootOfTrust memory rootOfTrust
-    ) {
+    function _parseAttestationCert(bytes memory attestationCert)
+        private
+        pure
+        returns (bytes32 attestationApplicationId, SecurityLevel securityLevel, RootOfTrust memory rootOfTrust)
+    {
         // TODO
     }
 
-    function _verifyAndroidId(string calldata deviceIdentity, bytes memory signature, bytes memory attestedPubKey) private pure returns (bool verified) {
+    function _verifyAndroidId(string calldata deviceIdentity, bytes memory signature, bytes memory attestedPubKey)
+        private
+        pure
+        returns (bool verified)
+    {
         // TODO: verify signature on android id
         // SHA256 vs keccak256 digest??
         // secp256k1 vs secp256r1 (most likely it's going to be secp256r1)

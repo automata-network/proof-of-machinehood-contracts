@@ -6,7 +6,6 @@ import {LibString} from "solady/utils/LibString.sol";
 import {ECDSA} from "solady/utils/ECDSA.sol";
 
 abstract contract MacNative is NativeBase {
-
     using LibString for *;
     using ECDSA for bytes32;
 
@@ -17,7 +16,7 @@ abstract contract MacNative is NativeBase {
 
     /// @dev extend this getter method to check whether the input address is
     /// derived from a trusted TEE signing key
-    function trustedSigningKey(address key) public virtual view returns (bool);
+    function trustedSigningKey(address key) public view virtual returns (bool);
 
     /// @dev deviceIdentity is the public portion of the attested secp256k1 key
     /// @dev prefix deviceIdentity with 0x (cheaper for performing string comparison)
@@ -28,9 +27,9 @@ abstract contract MacNative is NativeBase {
         override
         returns (bytes memory attestationData)
     {
-        
         (bytes memory encodedMessageBytes, bytes memory signature) = abi.decode(payload, (bytes, bytes));
-        (uint256 chainId, bytes memory pubKey, uint256 expiredAt) = abi.decode(encodedMessageBytes, (uint256, bytes, uint256));
+        (uint256 chainId, bytes memory pubKey, uint256 expiredAt) =
+            abi.decode(encodedMessageBytes, (uint256, bytes, uint256));
 
         // Check chainId
         if (chainId != block.chainid) {

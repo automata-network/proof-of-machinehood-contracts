@@ -5,7 +5,6 @@ import {NativeBase} from "./NativeBase.sol";
 import {IX509Helper} from "../interfaces/IX509Helper.sol";
 
 abstract contract NativeX5CBase is NativeBase {
-
     IX509Helper public immutable x509Helper;
 
     /// @dev The CA Hash is a bytes32 value that is computed with the SHA256 hash of the values described below:
