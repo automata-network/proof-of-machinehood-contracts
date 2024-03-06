@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
+import {P256} from "p256-verifier/P256.sol";
+
 import {NativeBase} from "./NativeBase.sol";
-import {IX509Helper} from "../interfaces/IX509Helper.sol";
+import {IX509Helper, X509CertObj} from "../interfaces/IX509Helper.sol";
 
 abstract contract NativeX5CBase is NativeBase {
     IX509Helper public immutable x509Helper;

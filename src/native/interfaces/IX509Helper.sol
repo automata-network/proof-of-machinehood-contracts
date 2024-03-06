@@ -4,25 +4,26 @@ pragma solidity >=0.8.0;
 /// @notice Contract interface used to interact with the X509Helper.sol contract
 /// See code: https://github.com/automata-network/automata-on-chain-pccs/blob/main/src/helper/X509Helper.sol
 
+/**
+ * @title Solidity Structure representing X509 Certificates
+ * @notice This is a simplified structure of a DER-decoded X509 Certificate
+ */
+struct X509CertObj {
+    uint256 serialNumber;
+    string issuerCommonName;
+    uint256 validityNotBefore;
+    uint256 validityNotAfter;
+    string subjectCommonName;
+    bytes subjectPublicKey;
+    // the extension needs to be parsed further
+    // this ideally should be done in a contract that serves as an extension to this contract as base
+    uint256 extensionPtr;
+    // for signature verification in the cert chain
+    bytes signature;
+    bytes tbs;
+}
+
 interface IX509Helper {
-    /**
-     * @title Solidity Structure representing X509 Certificates
-     * @notice This is a simplified structure of a DER-decoded X509 Certificate
-     */
-    struct X509CertObj {
-        uint256 serialNumber;
-        string issuerCommonName;
-        uint256 validityNotBefore;
-        uint256 validityNotAfter;
-        string subjectCommonName;
-        bytes subjectPublicKey;
-        // the extension needs to be parsed further
-        // this ideally should be done in a contract that serves as an extension to this contract as base
-        uint256 extensionPtr;
-        // for signature verification in the cert chain
-        bytes signature;
-        bytes tbs;
-    }
 
     function getTbsAndSig(bytes calldata der) external pure returns (bytes memory tbs, bytes memory sig);
 

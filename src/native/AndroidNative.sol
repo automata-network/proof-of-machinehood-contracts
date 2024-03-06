@@ -38,6 +38,9 @@ abstract contract AndroidNative is NativeX5CBase {
     error Invalid_Cert_Chain();
     error Invalid_Android_Id();
 
+    // 1.3.6.1.4.1.11129.2.1.17
+    bytes constant ATTESTATION_OID = hex"2B06010401D679020111";
+
     /// @dev configure valid Android App ID that generates the keypair
     function appId() public view virtual returns (bytes32);
 
@@ -90,6 +93,7 @@ abstract contract AndroidNative is NativeX5CBase {
         returns (bytes32 attestationApplicationId, SecurityLevel securityLevel, RootOfTrust memory rootOfTrust)
     {
         // TODO
+        // OID 1.3.6.1.4.1.11129.2.1.17
     }
 
     function _verifyAndroidId(string calldata deviceIdentity, bytes memory signature, bytes memory attestedPubKey)
