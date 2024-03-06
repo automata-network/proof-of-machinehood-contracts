@@ -24,7 +24,6 @@ struct X509CertObj {
 }
 
 interface IX509Helper {
-
     function getTbsAndSig(bytes calldata der) external pure returns (bytes memory tbs, bytes memory sig);
 
     function getSerialNumber(bytes calldata der) external pure returns (uint256 serialNum);

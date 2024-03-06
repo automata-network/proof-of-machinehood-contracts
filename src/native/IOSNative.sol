@@ -11,7 +11,12 @@ struct IOSPayload {
     bytes receipt;
     bytes authData;
     bytes32 clientDataHash;
-    bytes uuidSignature;
+}
+
+struct IOSAssertionPayload {
+    bytes signature;
+    bytes authData;
+    bytes32 clientDataHash;
 }
 
 abstract contract IOSNative is NativeX5CBase {
@@ -39,18 +44,19 @@ abstract contract IOSNative is NativeX5CBase {
     function _aaguidIsValid(bytes16 aaguid) internal view virtual returns (bool);
 
     /// @dev the payload is the abi encoded of the (CBOR decoded) Payload Object
-    function _verifyPayload(string calldata deviceIdentity, bytes calldata payload)
+    function _verifyPayload(bytes calldata deviceIdentity, bytes[] calldata payload)
         internal
         view
         override
         returns (bytes memory attestationData)
     {
-        IOSPayload memory payloadObj = abi.decode(payload, (IOSPayload));
+        IOSPayload memory payloadObj = abi.decode(payload[0], (IOSPayload));
+        IOSAssertionPayload memory assertionObj = abi.decode(payload[1], (IOSAssertionPayload));
 
         // TODO: verify challenge -> replay protection
-        
+
         // Step 1: Validate auth data
-        (bytes32 rpid, ,uint32 counter, bytes16 aaguid, bytes memory credentialId) = _parseAuthData(payloadObj.authData);
+        (bytes32 rpid,, uint32 counter, bytes16 aaguid, bytes memory credentialId) = _parseAuthData(payloadObj.authData);
         if (rpid != appIdHash()) {
             revert Invalid_App_Id_Hash(rpid);
         }
@@ -77,7 +83,7 @@ abstract contract IOSNative is NativeX5CBase {
         }
 
         // Step 3: Verify Device UUID
-        bool uuidVerified = _verifyUUID(deviceIdentity, payloadObj.uuidSignature, attestedPubkey);
+        bool uuidVerified = _verifyUUID(deviceIdentity, assertionObj.signature, attestedPubkey);
         if (!uuidVerified) {
             revert Invalid_UUID();
         }
@@ -97,18 +103,22 @@ abstract contract IOSNative is NativeX5CBase {
         credentialId = authData.substring(55, credIdLen);
     }
 
-    function _verifyCertChain(bytes[] memory x5c) internal view returns (bool verified, uint256 extensionPtr, bytes memory attestedPubkey) {
+    function _verifyCertChain(bytes[] memory x5c)
+        internal
+        view
+        returns (bool verified, uint256 extensionPtr, bytes memory attestedPubkey)
+    {
         for (uint256 i = 0; i < x5c.length - 1; i++) {
             // check whether the certificate has expired
             bool certIsValid = x509Helper.certIsNotExpired(x5c[i]);
             if (!certIsValid) {
                 return (false, 0, hex"");
             }
-            
+
             // check whether the certificate is signed by a valid and trusted issuer
-            X509CertObj memory cert = x509Helper.parseX509DER(x5c[i]);            
-            bytes memory issuerPubKey = x509Helper.getSubjectPublicKey(x5c[i+1]);
-            
+            X509CertObj memory cert = x509Helper.parseX509DER(x5c[i]);
+            bytes memory issuerPubKey = x509Helper.getSubjectPublicKey(x5c[i + 1]);
+
             // TODO: this assumption is incorrect, because aside from credcert
             // all other cert uses the P384SHA signature algorithm
             // bool sigVerified = P256.verifySignatureAllowMalleability(
@@ -129,7 +139,7 @@ abstract contract IOSNative is NativeX5CBase {
             }
 
             // check whether the issuer is trusted. If so, break the loop
-            (bytes memory issuerTbs, bytes memory issuerSig) = x509Helper.getTbsAndSig(x5c[i+1]);
+            (bytes memory issuerTbs, bytes memory issuerSig) = x509Helper.getTbsAndSig(x5c[i + 1]);
             bytes32 issuerHash = sha256(abi.encodePacked(issuerTbs, issuerPubKey, issuerSig));
             if (isCACertificate[issuerHash]) {
                 verified = true;
@@ -138,7 +148,11 @@ abstract contract IOSNative is NativeX5CBase {
         }
     }
 
-    function _extractNonceFromCredCert(bytes memory credCert, uint256 extensionPtr) private pure returns (bytes32 nonce) {
+    function _extractNonceFromCredCert(bytes memory credCert, uint256 extensionPtr)
+        private
+        pure
+        returns (bytes32 nonce)
+    {
         if (credCert[extensionPtr.ixs()] != 0xA3) {
             revert("Ptr does not point to a valid extension");
         }
@@ -169,7 +183,7 @@ abstract contract IOSNative is NativeX5CBase {
         }
     }
 
-    function _verifyUUID(string calldata deviceIdentity, bytes memory signature, bytes memory attestedPubKey)
+    function _verifyUUID(bytes calldata deviceIdentity, bytes memory signature, bytes memory attestedPubKey)
         private
         pure
         returns (bool verified)

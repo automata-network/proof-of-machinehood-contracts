@@ -48,13 +48,13 @@ abstract contract AndroidNative is NativeX5CBase {
 
     function checkRootOfTrust(RootOfTrust memory rootOfTrust) public view virtual returns (bool);
 
-    function _verifyPayload(string calldata deviceIdentity, bytes calldata payload)
+    function _verifyPayload(bytes calldata deviceIdentity, bytes[] calldata payload)
         internal
         view
         override
         returns (bytes memory attestationData)
     {
-        AndroidPayload memory payloadObj = abi.decode(payload, (AndroidPayload));
+        AndroidPayload memory payloadObj = abi.decode(payload[0], (AndroidPayload));
         (bool certChainVerified, uint256 attestationCertIndex, bytes memory attestedPubKey) =
             _verifyCertChain(payloadObj.x5c);
         if (!certChainVerified) {
@@ -75,6 +75,7 @@ abstract contract AndroidNative is NativeX5CBase {
         if (!sigVerified) {
             revert Invalid_Android_Id();
         }
+        attestationData = attestedPubKey;
     }
 
     /// @dev we cannot assume that the key attestation certificate extension is in the leaf certificate
@@ -96,7 +97,7 @@ abstract contract AndroidNative is NativeX5CBase {
         // OID 1.3.6.1.4.1.11129.2.1.17
     }
 
-    function _verifyAndroidId(string calldata deviceIdentity, bytes memory signature, bytes memory attestedPubKey)
+    function _verifyAndroidId(bytes calldata deviceIdentity, bytes memory signature, bytes memory attestedPubKey)
         private
         pure
         returns (bool verified)
