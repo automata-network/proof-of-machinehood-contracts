@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
-import {NativeX5CBase} from "./base/NativeX5CBase.sol";
+import {NativeX5CBase, X509CertObj} from "./base/NativeX5CBase.sol";
+import {BytesUtils} from "../utils/BytesUtils.sol";
+import {Asn1Decode, NodePtr} from "../utils/Asn1Decode.sol";
 
 struct AndroidPayload {
     bytes[] x5c;
@@ -32,6 +34,10 @@ struct RootOfTrust {
 }
 
 abstract contract AndroidNative is NativeX5CBase {
+    using Asn1Decode for bytes;
+    using NodePtr for uint256;
+    using BytesUtils for bytes;
+
     error Invalid_App_Id(bytes32 appIdFound);
     error Unacceptable_Security_Level(SecurityLevel securityLevel);
     error Invalid_Root_Of_Trust();
@@ -90,11 +96,39 @@ abstract contract AndroidNative is NativeX5CBase {
 
     function _parseAttestationCert(bytes memory attestationCert)
         private
-        pure
+        view
         returns (bytes32 attestationApplicationId, SecurityLevel securityLevel, RootOfTrust memory rootOfTrust)
     {
         // TODO
         // OID 1.3.6.1.4.1.11129.2.1.17
+
+        X509CertObj memory parsed = x509Helper.parseX509DER(attestationCert);
+        uint256 extensionPtr = parsed.extensionPtr;
+
+        if (attestationCert[extensionPtr.ixs()] != 0xA3) {
+            revert("Ptr does not point to a valid extension");
+        }
+
+        uint256 parentPtr = attestationCert.firstChildOf(extensionPtr);
+        uint256 ptr = attestationCert.firstChildOf(parentPtr);
+
+        while (ptr != 0) {
+            uint256 internalPtr = attestationCert.firstChildOf(ptr);
+            // check OID
+            if (attestationCert[internalPtr.ixs()] == 0x06) {
+                if (attestationCert.bytesAt(internalPtr).equals(ATTESTATION_OID)) {
+                    internalPtr = attestationCert.nextSiblingOf(internalPtr);
+                    uint256 attestationPtr = attestationCert.firstChildOf(internalPtr);
+                    // TODO: Properly define attestation object
+                }
+            }
+
+            if (ptr.ixl() <= parentPtr.ixl()) {
+                ptr = attestationCert.nextSiblingOf(ptr);
+            } else {
+                ptr = 0; // equivalent to break
+            }
+        }
     }
 
     function _verifyAndroidId(bytes calldata deviceIdentity, bytes memory signature, bytes memory attestedPubKey)

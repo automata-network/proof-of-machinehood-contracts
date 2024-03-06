@@ -16,7 +16,6 @@ struct IOSPayload {
 struct IOSAssertionPayload {
     bytes signature;
     bytes authData;
-    bytes32 clientDataHash;
 }
 
 abstract contract IOSNative is NativeX5CBase {
@@ -56,7 +55,9 @@ abstract contract IOSNative is NativeX5CBase {
         // TODO: verify challenge -> replay protection
 
         // Step 1: Validate auth data
-        (bytes32 rpid,, uint32 counter, bytes16 aaguid, bytes memory credentialId) = _parseAuthData(payloadObj.authData);
+        // Do we need to return flags here?
+        (bytes32 rpid,, uint32 counter, bytes memory credData) = _parseAuthData(payloadObj.authData);
+        (bytes16 aaguid, bytes memory credentialId) = _parseCredData(credData);
         if (rpid != appIdHash()) {
             revert Invalid_App_Id_Hash(rpid);
         }
@@ -83,7 +84,7 @@ abstract contract IOSNative is NativeX5CBase {
         }
 
         // Step 3: Verify Device UUID
-        bool uuidVerified = _verifyUUID(deviceIdentity, assertionObj.signature, attestedPubkey);
+        bool uuidVerified = _verifyUUID(deviceIdentity, attestedPubkey, assertionObj.signature, assertionObj.authData);
         if (!uuidVerified) {
             revert Invalid_UUID();
         }
@@ -93,14 +94,22 @@ abstract contract IOSNative is NativeX5CBase {
     function _parseAuthData(bytes memory authData)
         private
         pure
-        returns (bytes32 rpid, bytes1 flag, uint32 counter, bytes16 aaguid, bytes memory credentialId)
+        returns (bytes32 rpid, bytes1 flag, uint32 counter, bytes memory credData)
     {
         rpid = bytes32(authData.substring(0, 32));
         flag = bytes1(authData.substring(32, 1));
         counter = uint32(bytes4(authData.substring(33, 4)));
-        aaguid = bytes16(authData.substring(37, 16));
-        uint16 credIdLen = uint16(bytes2(authData.substring(53, 2)));
-        credentialId = authData.substring(55, credIdLen);
+
+        uint256 n = authData.length - 37;
+        if (n > 0) {
+            credData = authData.substring(37, n);
+        }
+    }
+
+    function _parseCredData(bytes memory credData) private pure returns (bytes16 aaguid, bytes memory credentialId) {
+        aaguid = bytes16(credData.substring(37, 16));
+        uint16 credIdLen = uint16(bytes2(credData.substring(53, 2)));
+        credentialId = credData.substring(55, credIdLen);
     }
 
     function _verifyCertChain(bytes[] memory x5c)
@@ -183,11 +192,32 @@ abstract contract IOSNative is NativeX5CBase {
         }
     }
 
-    function _verifyUUID(bytes calldata deviceIdentity, bytes memory signature, bytes memory attestedPubKey)
-        private
-        pure
-        returns (bool verified)
-    {
-        // TODO: use assertion to verify device ID
+    function _verifyUUID(
+        bytes calldata deviceIdentity,
+        bytes memory attestedPubKey,
+        bytes memory signature,
+        bytes memory authData
+    ) private view returns (bool verified) {
+        // auth data verification
+        (bytes32 rpid,, uint32 counter,) = _parseAuthData(authData);
+        if (rpid != appIdHash()) {
+            return false;
+        }
+        if (counter == 0) {
+            // pubkey not attested
+            return false;
+        }
+
+        // sig verification
+        bytes32 deviceHash = sha256(deviceIdentity);
+        bytes memory message = abi.encodePacked(authData, deviceHash);
+        bytes32 digest = sha256(message);
+        verified = P256.verifySignatureAllowMalleability(
+            digest,
+            uint256(bytes32(signature.substring(0, 32))),
+            uint256(bytes32(signature.substring(32, 32))),
+            uint256(bytes32(attestedPubKey.substring(0, 32))),
+            uint256(bytes32(attestedPubKey.substring(32, 32)))
+        );
     }
 }
