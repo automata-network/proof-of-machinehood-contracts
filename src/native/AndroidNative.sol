@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
-import {NativeX5CBase, X509CertObj, P256} from "./base/NativeX5CBase.sol";
+import {NativeX5CBase, X509Helper, X509CertObj, P256} from "./base/NativeX5CBase.sol";
 import {BytesUtils} from "../utils/BytesUtils.sol";
 import {Asn1Decode, NodePtr} from "../utils/Asn1Decode.sol";
 
@@ -121,10 +121,10 @@ abstract contract AndroidNative is NativeX5CBase {
 
     function _parseAttestationCert(bytes memory attestationCert)
         private
-        view
+        pure
         returns (BasicAttestationObject memory att)
     {
-        X509CertObj memory parsed = x509Helper.parseX509DER(attestationCert);
+        X509CertObj memory parsed = X509Helper.parseX509DER(attestationCert);
         uint256 extensionPtr = parsed.extensionPtr;
 
         if (attestationCert[extensionPtr.ixs()] != 0xA3) {

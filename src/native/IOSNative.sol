@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
-import {NativeX5CBase, P256, X509CertObj} from "./base/NativeX5CBase.sol";
+import {NativeX5CBase, P256, X509Helper, X509CertObj} from "./base/NativeX5CBase.sol";
 import {BytesUtils} from "../utils/BytesUtils.sol";
 import {Asn1Decode, NodePtr} from "../utils/Asn1Decode.sol";
 
@@ -119,14 +119,14 @@ abstract contract IOSNative is NativeX5CBase {
     {
         for (uint256 i = 0; i < x5c.length - 1; i++) {
             // check whether the certificate has expired
-            bool certIsValid = x509Helper.certIsNotExpired(x5c[i]);
+            bool certIsValid = X509Helper.certIsNotExpired(x5c[i]);
             if (!certIsValid) {
                 return (false, 0, hex"");
             }
 
             // check whether the certificate is signed by a valid and trusted issuer
-            X509CertObj memory cert = x509Helper.parseX509DER(x5c[i]);
-            bytes memory issuerPubKey = x509Helper.getSubjectPublicKey(x5c[i + 1]);
+            X509CertObj memory cert = X509Helper.parseX509DER(x5c[i]);
+            bytes memory issuerPubKey = X509Helper.getSubjectPublicKey(x5c[i + 1]);
 
             // TODO: this assumption is incorrect, because aside from credcert
             // all other cert uses the P384SHA signature algorithm
@@ -148,7 +148,7 @@ abstract contract IOSNative is NativeX5CBase {
             }
 
             // check whether the issuer is trusted. If so, break the loop
-            (bytes memory issuerTbs, bytes memory issuerSig) = x509Helper.getTbsAndSig(x5c[i + 1]);
+            (bytes memory issuerTbs, bytes memory issuerSig) = X509Helper.getTbsAndSig(x5c[i + 1]);
             bytes32 issuerHash = sha256(abi.encodePacked(issuerTbs, issuerPubKey, issuerSig));
             if (isCACertificate[issuerHash]) {
                 verified = true;

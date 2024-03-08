@@ -4,11 +4,9 @@ pragma solidity ^0.8.0;
 import {P256} from "p256-verifier/P256.sol";
 
 import {NativeBase} from "./NativeBase.sol";
-import {IX509Helper, X509CertObj} from "../interfaces/IX509Helper.sol";
+import {X509Helper, X509CertObj} from "../x509/X509Helper.sol";
 
 abstract contract NativeX5CBase is NativeBase {
-    IX509Helper public immutable x509Helper;
-
     /// @dev The CA Hash is a bytes32 value that is computed with the SHA256 hash of the values described below:
     /// @dev The tightly packed binary value of the issuer certificate's tbs, public key and signature.abi
     /// @dev This hash is stored to indicate that the issuer certificate is to be trusted.
@@ -18,10 +16,6 @@ abstract contract NativeX5CBase is NativeBase {
     ///     as long as a trusted authority has been found.
     /// @notice Issuer certificates are also known as "father certs".
     mapping(bytes32 => bool) internal isCACertificate;
-
-    constructor(address x509HelperAddr) {
-        x509Helper = IX509Helper(x509HelperAddr);
-    }
 
     function addCACert(bytes32 hash) external virtual {}
 
