@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
-import {NativeX5CBase, X509Helper, X509CertObj, P256} from "./base/NativeX5CBase.sol";
+import {
+    NativeX5CBase,
+    P256,
+    X509Helper,
+    X509CertObj,
+    PublicKeyAlgorithm,
+    SignatureAlgorithm
+} from "./base/NativeX5CBase.sol";
 import {BytesUtils} from "../utils/BytesUtils.sol";
 import {Asn1Decode, NodePtr} from "../utils/Asn1Decode.sol";
 
@@ -49,12 +56,13 @@ abstract contract AndroidNative is NativeX5CBase {
     using BytesUtils for bytes;
 
     error Invalid_App_Id(bytes32 appIdFound);
-    error Invalid_Cert_Chain();
     error Invalid_Android_Id();
     error Attestation_Not_Accepted_By_Policy();
 
     // 1.3.6.1.4.1.11129.2.1.17
     bytes constant ATTESTATION_OID = hex"2B06010401D679020111";
+    // 1.3.6.1.4.1.11129.2.1.30
+    bytes constant PROVISIONING_INFO_OID = hex"2B06010401D67902011E";
     // https://developer.android.com/privacy-and-security/security-key-attestation#key_attestation_ext_schema
     uint256 constant ATTESTATION_APPLICATION_ID_CONTEXT_TAG = 709;
 
@@ -70,23 +78,20 @@ abstract contract AndroidNative is NativeX5CBase {
         AndroidPayload memory payloadObj = abi.decode(payload[0], (AndroidPayload));
 
         // Step 1: Verify certificate chain
-        (bool certChainVerified, uint256 attestationCertIndex, bytes memory attestedPubKey) =
+        (bytes memory attestedPubKey, uint256 attestationPtr, bytes memory attestationExtension) =
             _verifyCertChain(payloadObj.x5c);
-        if (!certChainVerified) {
-            revert Invalid_Cert_Chain();
-        }
 
-        // Step 2: validate Android_ID
-        bool sigVerified = _verifyAndroidId(deviceIdentity, payloadObj.signature, attestedPubKey);
-        if (!sigVerified) {
-            revert Invalid_Android_Id();
-        }
-
-        // Step 3: validate attestation details from the corresponding certificate
-        BasicAttestationObject memory att = _parseAttestationCert(payloadObj.x5c[attestationCertIndex]);
+        // Step 2: validate attestation details from the corresponding certificate
+        BasicAttestationObject memory att = _parseAttestationExtension(attestationExtension, attestationPtr);
         bool attValidated = _validateAttestation(att);
         if (!attValidated) {
             revert Attestation_Not_Accepted_By_Policy();
+        }
+
+        // Step 3: validate Android_ID
+        bool sigVerified = _verifyAndroidId(deviceIdentity, payloadObj.signature, attestedPubKey);
+        if (!sigVerified) {
+            revert Invalid_Android_Id();
         }
 
         attestationData = attestedPubKey;
@@ -108,71 +113,129 @@ abstract contract AndroidNative is NativeX5CBase {
     }
 
     /// @dev we cannot assume that the key attestation certificate extension is in the leaf certificate
+    /// @dev instead, we should only trust the one that is closest to the root
     /// See https://developer.android.com/privacy-and-security/security-key-attestation#verifying for more info
     function _verifyCertChain(bytes[] memory x5c)
         internal
         view
-        returns (bool verified, uint256 attestationCertIndex, bytes memory attestedPubkey)
+        returns (bytes memory attestedPubKey, uint256 attestationPtr, bytes memory attestationExtension)
     {
-        // TODO
-        // Signature check
-        // CRL check
+        // Step 1: check if the root contains the trusted key
+        (PublicKeyAlgorithm issuerKeyAlgo, bytes memory issuerKey) = X509Helper.getSubjectPublicKeyInfo(x5c[0]);
+        (bytes memory tbs, SignatureAlgorithm issuerSigAlgo, bytes memory sig) = X509Helper.getTbsAndSigInfo(x5c[0]);
+        bytes32 rootHash = sha256(abi.encodePacked(tbs, issuerKey, sig));
+        bool provisiongFound;
+        bool attestationFound;
+        if (isCACertificate[rootHash]) {
+            for (uint256 i = x5c.length - 1; i > 0; i--) {
+                X509CertObj memory currentSubject = X509Helper.parseX509DER(x5c[i - 1]);
+                // determine validity
+                if (
+                    block.timestamp < currentSubject.validityNotBefore
+                        || block.timestamp > currentSubject.validityNotAfter
+                ) {
+                    revert("expired certificate found");
+                }
+
+                // TODO: check CRL
+
+                // TODO: verify signature
+                bool sigVerified;
+                (tbs, issuerSigAlgo, sig) = X509Helper.getTbsAndSigInfo(x5c[0]);
+                if (issuerKeyAlgo == PublicKeyAlgorithm.RSA && issuerSigAlgo == SignatureAlgorithm.SHA256WithRSA) {
+                    // verify RSA sig
+                } else {
+                    if (
+                        issuerKeyAlgo == PublicKeyAlgorithm.EC256 && issuerSigAlgo == SignatureAlgorithm.SHA384WithECDSA
+                    ) {
+                        revert("Issuer key algo is not compatible with issuer sig algo");
+                    } else {
+                        bool keyIsP256 = issuerKeyAlgo == PublicKeyAlgorithm.EC256;
+                        uint256 keyLength = keyIsP256 ? 64 : 96;
+                        if (keyIsP256) {
+                            // verify P256 sig
+                        }
+                    }
+                }
+                require(sigVerified, "Invalid cert signature");
+
+                // Check for attestation extension
+                (attestationFound, attestationPtr, attestationExtension) =
+                    _findOID(x5c[i - 1], currentSubject.extensionPtr, ATTESTATION_OID);
+                if (attestationFound) {
+                    attestedPubKey = currentSubject.subjectPublicKey;
+                    break;
+                } else {
+                    if (provisiongFound) {
+                        revert("cert does not contain valid attestation");
+                    }
+                }
+
+                // Check for provisioning extension
+                if (!provisiongFound) {
+                    (provisiongFound,,) = _findOID(x5c[i - 1], currentSubject.extensionPtr, PROVISIONING_INFO_OID);
+                }
+            }
+        }
     }
 
-    function _parseAttestationCert(bytes memory attestationCert)
+    function _findOID(bytes memory der, uint256 extensionPtr, bytes memory oid)
         private
         pure
-        returns (BasicAttestationObject memory att)
+        returns (bool oidFound, uint256 retPtr, bytes memory retDer)
     {
-        X509CertObj memory parsed = X509Helper.parseX509DER(attestationCert);
-        uint256 extensionPtr = parsed.extensionPtr;
-
-        if (attestationCert[extensionPtr.ixs()] != 0xA3) {
+        if (der[extensionPtr.ixs()] != 0xA3) {
             revert("Ptr does not point to a valid extension");
         }
 
-        uint256 parentPtr = attestationCert.firstChildOf(extensionPtr);
-        uint256 ptr = attestationCert.firstChildOf(parentPtr);
+        uint256 parentPtr = der.firstChildOf(extensionPtr);
+        uint256 ptr = der.firstChildOf(parentPtr);
 
         while (ptr != 0) {
-            uint256 internalPtr = attestationCert.firstChildOf(ptr);
+            uint256 internalPtr = der.firstChildOf(ptr);
             // check OID
-            if (attestationCert[internalPtr.ixs()] == 0x06) {
-                if (attestationCert.bytesAt(internalPtr).equals(ATTESTATION_OID)) {
-                    internalPtr = attestationCert.nextSiblingOf(internalPtr);
-                    bytes memory attestationDer = attestationCert.bytesAt(internalPtr);
-
-                    uint256 attestationPtr = attestationDer.root();
-                    attestationPtr = attestationDer.firstChildOf(attestationPtr);
-
-                    // attestationSecurityLevel is the 2nd element of the KeyDescription sequence
-                    attestationPtr = attestationDer.nextSiblingOf(attestationPtr);
-                    att.securityLevel = SecurityLevel(uint8(bytes1(attestationDer.bytesAt(attestationPtr))));
-
-                    // attestationApplicationId is tagged with [709] in the softwareEnforced sequence
-                    // which is the 7th element of the KeyDescription sequence
-                    attestationPtr = attestationDer.nextSiblingOf(attestationPtr);
-                    attestationPtr = attestationDer.nextSiblingOf(attestationPtr);
-                    attestationPtr = attestationDer.nextSiblingOf(attestationPtr);
-                    attestationPtr = attestationDer.nextSiblingOf(attestationPtr);
-                    attestationPtr = attestationDer.nextSiblingOf(attestationPtr);
-
-                    bytes memory softwareEnforcedBytes = attestationDer.bytesAt(attestationPtr);
-                    (bytes memory packageNameBytes, bytes memory packageSignature) =
-                        _parseSoftwareEnforcedBytes(softwareEnforcedBytes);
-
-                    att.packageName = string(packageNameBytes);
-                    att.packageSignature = packageSignature;
-                    att.fullAttestationDer = attestationDer;
+            if (der[internalPtr.ixs()] == 0x06) {
+                oidFound = der.bytesAt(internalPtr).equals(oid);
+                if (oidFound) {
+                    internalPtr = der.nextSiblingOf(internalPtr);
+                    retDer = der.bytesAt(internalPtr);
+                    retPtr = der.root();
                 }
             }
-
             if (ptr.ixl() < parentPtr.ixl()) {
-                ptr = attestationCert.nextSiblingOf(ptr);
+                ptr = der.nextSiblingOf(ptr);
             } else {
                 ptr = 0; // equivalent to break
             }
         }
+    }
+
+    function _parseAttestationExtension(bytes memory attestationDer, uint256 attestationPtr)
+        private
+        pure
+        returns (BasicAttestationObject memory att)
+    {
+        attestationPtr = attestationDer.firstChildOf(attestationPtr);
+
+        // attestationSecurityLevel is the 2nd element of the KeyDescription sequence
+        attestationPtr = attestationDer.nextSiblingOf(attestationPtr);
+        att.securityLevel = SecurityLevel(uint8(bytes1(attestationDer.bytesAt(attestationPtr))));
+
+        // attestationApplicationId is tagged with [709] in the softwareEnforced sequence
+        // which is the 7th element of the KeyDescription sequence
+        attestationPtr = attestationDer.nextSiblingOf(attestationPtr);
+        attestationPtr = attestationDer.nextSiblingOf(attestationPtr);
+        attestationPtr = attestationDer.nextSiblingOf(attestationPtr);
+        attestationPtr = attestationDer.nextSiblingOf(attestationPtr);
+        attestationPtr = attestationDer.nextSiblingOf(attestationPtr);
+
+        bytes memory softwareEnforcedBytes = attestationDer.bytesAt(attestationPtr);
+        (bytes memory packageNameBytes, bytes memory packageSignature) =
+            _parseSoftwareEnforcedBytes(softwareEnforcedBytes);
+
+        att.packageName = string(packageNameBytes);
+        att.packageSignature = packageSignature;
+        att.fullAttestationDer = attestationDer;
     }
 
     function _parseSoftwareEnforcedBytes(bytes memory softwareEnforcedBytes)

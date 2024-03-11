@@ -81,8 +81,8 @@ library X509Helper {
     bytes constant SHA256_RSA_OID = hex"2A864886F70D01010B";
 
     /// ============== Signature lengths ==============
-    uint256 constant SHA256_ECDSA_SIG_LEN_BYTES = 64;
-    uint256 constant SHA384_ECDSA_SIG_LEN_BYTES = 96;
+    uint256 public constant P256_PUBKEY_LEN_BYTES = 64;
+    uint256 public constant P384_PUBKEY_LEN_BYTES = 96;
 
     /// =================================================================================
     /// USE THE GETTERS BELOW IF YOU DON'T WANT TO PARSE THE ENTIRE X509 CERTIFICATE
