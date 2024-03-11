@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {P256} from "p256-verifier/P256.sol";
 
 import {NativeBase} from "./NativeBase.sol";
-import {X509Helper, X509CertObj} from "../x509/X509Helper.sol";
+import {X509Helper, X509CertObj, PublicKeyAlgorithm, SignatureAlgorithm} from "../x509/X509Helper.sol";
 
 abstract contract NativeX5CBase is NativeBase {
     /// @dev The CA Hash is a bytes32 value that is computed with the SHA256 hash of the values described below:

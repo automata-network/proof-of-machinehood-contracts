@@ -176,7 +176,8 @@ library Asn1Decode {
         return der.substring(ptr.ixf() + 1, valueLength - 1);
     }
 
-    function readNodeLength(bytes memory der, uint256 ix) private pure returns (uint256) {
+    // Modified from the source, making this method internal instead of private
+    function readNodeLength(bytes memory der, uint256 ix) internal pure returns (uint256) {
         uint256 length;
         uint80 ixFirstContentByte;
         uint80 ixLastContentByte;

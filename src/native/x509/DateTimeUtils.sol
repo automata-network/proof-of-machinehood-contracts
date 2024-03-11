@@ -37,29 +37,4 @@ library DateTimeUtils {
 
         return DateTimeLib.dateTimeToTimestamp(yrs, mnths, dys, hrs, mins, secs);
     }
-
-    /// @dev iso follows pattern: "YYYY-MM-DDTHH:mm:ssZ"
-    function fromISOToTimestamp(string memory iso) internal pure returns (uint256) {
-        require(bytes(iso).length == 20, "invalid iso string length");
-        uint256 y = stringToUint(iso.slice(0, 4));
-        uint256 m = stringToUint(iso.slice(5, 7));
-        uint256 d = stringToUint(iso.slice(8, 10));
-        uint256 h = stringToUint(iso.slice(11, 13));
-        uint256 min = stringToUint(iso.slice(14, 16));
-        uint256 s = stringToUint(iso.slice(17, 19));
-
-        return DateTimeLib.dateTimeToTimestamp(y, m, d, h, min, s);
-    }
-
-    // https://ethereum.stackexchange.com/questions/10932/how-to-convert-string-to-int
-    function stringToUint(string memory s) private pure returns (uint256 result) {
-        bytes memory b = bytes(s);
-        result = 0;
-        for (uint256 i = 0; i < b.length; i++) {
-            uint256 c = uint256(uint8(b[i]));
-            if (c >= 48 && c <= 57) {
-                result = result * 10 + (c - 48);
-            }
-        }
-    }
 }

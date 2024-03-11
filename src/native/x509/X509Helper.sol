@@ -5,9 +5,29 @@ import {Asn1Decode, NodePtr} from "../../utils/Asn1Decode.sol";
 import {BytesUtils} from "../../utils/BytesUtils.sol";
 import {DateTimeUtils} from "./DateTimeUtils.sol";
 
+// Diverged from https://github.com/automata-network/automata-on-chain-pccs/blob/main/src/helper/X509Helper.sol
+
+enum PublicKeyAlgorithm {
+    UNSUPPORTED,
+    EC256,
+    EC384,
+    RSA
+}
+
+enum SignatureAlgorithm {
+    UNSUPPORTED,
+    SHA256WithECDSA,
+    SHA384WithECDSA,
+    SHA256WithRSA
+}
+
 /**
  * @title Solidity Structure representing X509 Certificates
  * @notice This is a simplified structure of a DER-decoded X509 Certificate
+ * @dev The Extension sequence is a custom ASN.1 Sequence that needs to be
+ * @dev parsed further in a more specialized contract.
+ * @dev IMPORTANT! Post-processing of the public key and signature bytes may be necesary
+ * (to remove prefixes and/or padded 0x00 bytes)
  */
 struct X509CertObj {
     uint256 serialNumber;
@@ -16,37 +36,69 @@ struct X509CertObj {
     uint256 validityNotAfter;
     string subjectCommonName;
     bytes subjectPublicKey;
-    // the extension needs to be parsed further for PCK Certificates
-    uint256 extensionPtr;
     // for signature verification in the cert chain
+    PublicKeyAlgorithm subjectPublicKeyAlgo;
+    SignatureAlgorithm issuerSigAlgo;
+    /// @dev if the signature is generated with ECDSA
+    /// this is the abi.encoded tuple of (r,s)
+    /// @dev when parsing abi.encoded tuple (r,s)
+    /// it is the responsibility of the implementation contract
+    /// to verify the correct length of signatures
+    /// e.g. 32 bytes for P256 vs 48 bytes for P384
     bytes signature;
     bytes tbs;
+    // the extension needs to be parsed further
+    uint256 extensionPtr;
 }
 
 /**
- * @title X509 Certificates Helper Contract
- * @notice This is a standalone contract that can be used by off-chain applications and smart contracts
- * to parse DER-encoded X509 certificates.
- * @dev The Extension sequence in Intel PCK Certificates is a custom ASN.1 Sequence that needs to be
- * @dev parsed further in a more specialized PCKHelper contract.
+ * @title X509 Certificates Library
+ * @notice This library can be integrated by smart contracts to parse DER-encoded X509 certificates.
  */
 library X509Helper {
     using Asn1Decode for bytes;
     using NodePtr for uint256;
     using BytesUtils for bytes;
 
+    /// ============== PublicKeyAlgorithm OIDs ==============
+
+    // 1.2.840.10045.2.1
+    bytes constant EC_KEY_OID = hex"2A8648CE3D0201";
+    // 1.2.840.10045.3.1.7
+    bytes constant EC256_KEY_PARAM_OID = hex"2A8648CE3D030107";
+    // 1.3.132.0.34
+    bytes constant EC384_KEY_PARAM_OID = hex"2B81040022";
+    // 1.2.840.113549.1.1.1 (no params)
+    bytes constant RSA_KEY_OID = hex"2A864886F70D010101";
+
+    /// ============== SignatureAlgorithm OIDs ==============
+
+    // 1.2.840.10045.4.3.2
+    bytes constant SHA256_ECDSA_OID = hex"2A8648CE3D040302";
+    // 1.2.840.10045.4.3.3
+    bytes constant SHA384_ECDSA_OID = hex"2A8648CE3D040303";
+    // 1.2.840.113549.1.1.11
+    bytes constant SHA256_RSA_OID = hex"2A864886F70D01010B";
+
+    /// ============== Signature lengths ==============
+    uint256 constant SHA256_ECDSA_SIG_LEN_BYTES = 64;
+    uint256 constant SHA384_ECDSA_SIG_LEN_BYTES = 96;
+
     /// =================================================================================
     /// USE THE GETTERS BELOW IF YOU DON'T WANT TO PARSE THE ENTIRE X509 CERTIFICATE
     /// =================================================================================
 
-    function getTbsAndSig(bytes memory der) internal pure returns (bytes memory tbs, bytes memory sig) {
+    function getTbsAndSigInfo(bytes memory der)
+        internal
+        pure
+        returns (bytes memory tbs, SignatureAlgorithm issuerSigAlgo, bytes memory sig)
+    {
         uint256 root = der.root();
         uint256 tbsParentPtr = der.firstChildOf(root);
         uint256 sigPtr = der.nextSiblingOf(tbsParentPtr);
-        sigPtr = der.nextSiblingOf(sigPtr);
 
         tbs = der.allBytesAt(tbsParentPtr);
-        sig = _getSignature(der, sigPtr);
+        (issuerSigAlgo, sig) = _getSignatureInfo(der, sigPtr);
     }
 
     function getSerialNumber(bytes memory der) internal pure returns (uint256 serialNum) {
@@ -91,7 +143,11 @@ library X509Helper {
         subjectCommonName = _getCommonName(der, der.firstChildOf(tbsPtr));
     }
 
-    function getSubjectPublicKey(bytes memory der) internal pure returns (bytes memory pubKey) {
+    function getSubjectPublicKeyInfo(bytes memory der)
+        internal
+        pure
+        returns (PublicKeyAlgorithm subjectPublicKeyAlgo, bytes memory pubKey)
+    {
         uint256 root = der.root();
         uint256 tbsParentPtr = der.firstChildOf(root);
         uint256 tbsPtr = der.firstChildOf(tbsParentPtr);
@@ -101,7 +157,7 @@ library X509Helper {
         tbsPtr = der.nextSiblingOf(tbsPtr);
         tbsPtr = der.nextSiblingOf(tbsPtr);
         tbsPtr = der.nextSiblingOf(tbsPtr);
-        pubKey = _getSubjectPublicKey(der, der.firstChildOf(tbsPtr));
+        (subjectPublicKeyAlgo, pubKey) = _getSubjectPublicKeyInfo(der, der.firstChildOf(tbsPtr));
     }
 
     /// x509 Certificates generally contain a sequence of elements in the following order:
@@ -153,7 +209,7 @@ library X509Helper {
         cert.subjectCommonName = _getCommonName(der, der.firstChildOf(tbsPtr));
 
         tbsPtr = der.nextSiblingOf(tbsPtr);
-        cert.subjectPublicKey = _getSubjectPublicKey(der, der.firstChildOf(tbsPtr));
+        (cert.subjectPublicKeyAlgo, cert.subjectPublicKey) = _getSubjectPublicKeyInfo(der, der.firstChildOf(tbsPtr));
 
         cert.extensionPtr = der.nextSiblingOf(tbsPtr);
 
@@ -161,8 +217,7 @@ library X509Helper {
         // now we just need to look for the signature
 
         uint256 sigPtr = der.nextSiblingOf(tbsParentPtr);
-        sigPtr = der.nextSiblingOf(sigPtr);
-        cert.signature = _getSignature(der, sigPtr);
+        (cert.issuerSigAlgo, cert.signature) = _getSignatureInfo(der, sigPtr);
     }
 
     function _getCommonName(bytes memory der, uint256 commonNameParentPtr)
@@ -187,13 +242,29 @@ library X509Helper {
         notAfter = DateTimeUtils.fromDERToTimestamp(der.bytesAt(notAfterPtr));
     }
 
-    function _getSubjectPublicKey(bytes memory der, uint256 subjectPublicKeyInfoPtr)
+    function _getSubjectPublicKeyInfo(bytes memory der, uint256 subjectPublicKeyInfoPtr)
         private
         pure
-        returns (bytes memory pubKey)
+        returns (PublicKeyAlgorithm subjectPublicKeyAlgo, bytes memory pubKey)
     {
+        // step 1: get algo
+        uint256 subjectPublicKeyAlgoPtr = der.firstChildOf(subjectPublicKeyInfoPtr);
+        bytes memory oid = der.bytesAt(subjectPublicKeyAlgoPtr);
+        if (oid.equals(EC_KEY_OID)) {
+            subjectPublicKeyAlgoPtr = der.nextSiblingOf(subjectPublicKeyAlgoPtr);
+            oid = der.bytesAt(subjectPublicKeyAlgoPtr);
+            if (oid.equals(EC256_KEY_PARAM_OID)) {
+                subjectPublicKeyAlgo = PublicKeyAlgorithm.EC256;
+            } else if (oid.equals(EC384_KEY_PARAM_OID)) {
+                subjectPublicKeyAlgo = PublicKeyAlgorithm.EC384;
+            }
+        } else if (oid.equals(RSA_KEY_OID)) {
+            subjectPublicKeyAlgo = PublicKeyAlgorithm.RSA;
+        }
+
+        // step 2: get key
         subjectPublicKeyInfoPtr = der.nextSiblingOf(subjectPublicKeyInfoPtr);
-        pubKey = _trimBytes(der.bytesAt(subjectPublicKeyInfoPtr), 64);
+        pubKey = der.bitstringAt(subjectPublicKeyInfoPtr);
     }
 
     function _parseSerialNumber(bytes memory serialBytes) private pure returns (uint256 serial) {
@@ -201,28 +272,43 @@ library X509Helper {
         serial = uint256(bytes32(serialBytes) >> shift);
     }
 
-    function _getSignature(bytes memory der, uint256 sigPtr) private pure returns (bytes memory sig) {
-        // Skip three bytes to the right, TODO: why is it tagged with 0x03?
-        // the three bytes in question: 0x034700 or 0x034800 or 0x034900
-        sigPtr = NodePtr.getPtr(sigPtr.ixs() + 3, sigPtr.ixf() + 3, sigPtr.ixl());
+    function _getSignatureInfo(bytes memory der, uint256 sigPtr)
+        private
+        pure
+        returns (SignatureAlgorithm issuerSigAlgo, bytes memory sig)
+    {
+        // Step 1: Get Signature algo
+        uint256 sigAlgoPtr = der.firstChildOf(sigPtr);
+        bytes memory oid = der.bytesAt(sigAlgoPtr);
 
-        sigPtr = der.firstChildOf(sigPtr);
-        bytes memory sigX = _trimBytes(der.bytesAt(sigPtr), 32);
-
-        sigPtr = der.nextSiblingOf(sigPtr);
-        bytes memory sigY = _trimBytes(der.bytesAt(sigPtr), 32);
-
-        sig = abi.encodePacked(sigX, sigY);
-    }
-
-    /// @dev remove unnecessary prefix from the input
-    function _trimBytes(bytes memory input, uint256 expectedLength) private pure returns (bytes memory output) {
-        uint256 n = input.length;
-
-        if (n <= expectedLength) {
-            return input;
+        if (oid.equals(SHA256_ECDSA_OID)) {
+            issuerSigAlgo = SignatureAlgorithm.SHA256WithECDSA;
+        } else if (oid.equals(SHA384_ECDSA_OID)) {
+            issuerSigAlgo = SignatureAlgorithm.SHA384WithECDSA;
+        } else if (oid.equals(SHA256_RSA_OID)) {
+            issuerSigAlgo = SignatureAlgorithm.SHA256WithRSA;
         }
-        uint256 lengthDiff = n - expectedLength;
-        output = input.substring(lengthDiff, expectedLength);
+
+        // Step 2: Extract the signature
+        // at this point, the pointer should be pointing to the bitstring
+        // the first byte is a 0x03 tag, indicating that the following content is of bitstring type
+        // the sceond byte is just the length of the bitstring
+        // the third byte is 0x00, represents End-of-Content (EOC)
+        // this is valid, because the signature of a X509 certificate is conventionally placed
+        // as the last element of the entire certificate
+        sigPtr = der.nextSiblingOf(sigPtr);
+
+        if (issuerSigAlgo == SignatureAlgorithm.SHA256WithRSA) {
+            sigPtr = NodePtr.getPtr(sigPtr.ixs(), sigPtr.ixf() + 1, sigPtr.ixl());
+            sig = der.bytesAt(sigPtr);
+        } else {
+            sigPtr = Asn1Decode.readNodeLength(der, sigPtr.ixf() + 1);
+            sigPtr = der.firstChildOf(sigPtr);
+            bytes memory r = der.bytesAt(sigPtr);
+            sigPtr = der.nextSiblingOf(sigPtr);
+            bytes memory s = der.bytesAt(sigPtr);
+
+            sig = abi.encode(r, s);
+        }
     }
 }
