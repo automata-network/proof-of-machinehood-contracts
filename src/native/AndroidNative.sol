@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {
     NativeX5CBase,
-    P256,
+    ISigVerifyLib,
     X509Helper,
     X509CertObj,
     PublicKeyAlgorithm,
@@ -66,6 +66,8 @@ abstract contract AndroidNative is NativeX5CBase {
     // https://developer.android.com/privacy-and-security/security-key-attestation#key_attestation_ext_schema
     uint256 constant ATTESTATION_APPLICATION_ID_CONTEXT_TAG = 709;
 
+    constructor(address _sigVerifyLib) NativeX5CBase(_sigVerifyLib) {}
+
     /// @dev implement this method to specify the set of values that you expect the hardware-backed key to contain
     function _validateAttestation(BasicAttestationObject memory att) internal view virtual returns (bool);
 
@@ -102,14 +104,7 @@ abstract contract AndroidNative is NativeX5CBase {
         view
         returns (bool verified)
     {
-        bytes32 deviceHash = sha256(deviceIdentity);
-        verified = P256.verifySignatureAllowMalleability(
-            deviceHash,
-            uint256(bytes32(signature.substring(0, 32))),
-            uint256(bytes32(signature.substring(32, 32))),
-            uint256(bytes32(attestedPubKey.substring(0, 32))),
-            uint256(bytes32(attestedPubKey.substring(32, 32)))
-        );
+        verified = sigVerifyLib.verifyES256Signature(deviceIdentity, signature, attestedPubKey);
     }
 
     /// @dev we cannot assume that the key attestation certificate extension is in the leaf certificate
@@ -122,7 +117,7 @@ abstract contract AndroidNative is NativeX5CBase {
     {
         // Step 1: check if the root contains the trusted key
         (PublicKeyAlgorithm issuerKeyAlgo, bytes memory issuerKey) = X509Helper.getSubjectPublicKeyInfo(x5c[0]);
-        (bytes memory tbs, SignatureAlgorithm issuerSigAlgo, bytes memory sig) = X509Helper.getTbsAndSigInfo(x5c[0]);
+        (bytes memory tbs,, bytes memory sig) = X509Helper.getTbsAndSigInfo(x5c[0]);
         bytes32 rootHash = sha256(abi.encodePacked(tbs, issuerKey, sig));
         bool provisiongFound;
         bool attestationFound;
@@ -139,25 +134,40 @@ abstract contract AndroidNative is NativeX5CBase {
 
                 // TODO: check CRL
 
-                // TODO: verify signature
                 bool sigVerified;
-                (tbs, issuerSigAlgo, sig) = X509Helper.getTbsAndSigInfo(x5c[0]);
-                if (issuerKeyAlgo == PublicKeyAlgorithm.RSA && issuerSigAlgo == SignatureAlgorithm.SHA256WithRSA) {
+                if (
+                    issuerKeyAlgo == PublicKeyAlgorithm.RSA
+                        && currentSubject.issuerSigAlgo == SignatureAlgorithm.SHA256WithRSA
+                ) {
                     // verify RSA sig
+                    (bytes memory e, bytes memory m) = abi.decode(issuerKey, (bytes, bytes));
+                    e = _process(e, 3);
+                    m = _process(m, m.length);
+                    issuerKey = abi.encodePacked(e, m);
+                    sigVerified =
+                        sigVerifyLib.verifyRS256Signature(currentSubject.tbs, currentSubject.signature, issuerKey);
                 } else {
                     if (
-                        issuerKeyAlgo == PublicKeyAlgorithm.EC256 && issuerSigAlgo == SignatureAlgorithm.SHA384WithECDSA
+                        issuerKeyAlgo == PublicKeyAlgorithm.EC256
+                            && currentSubject.issuerSigAlgo == SignatureAlgorithm.SHA384WithECDSA
                     ) {
                         revert("Issuer key algo is not compatible with issuer sig algo");
                     } else {
                         bool keyIsP256 = issuerKeyAlgo == PublicKeyAlgorithm.EC256;
                         uint256 keyLength = keyIsP256 ? 64 : 96;
+                        issuerKey = _process(issuerKey, keyLength);
+                        (bytes memory r, bytes memory s) = abi.decode(currentSubject.signature, (bytes, bytes));
+                        r = _process(r, keyLength / 2);
+                        s = _process(s, keyLength / 2);
                         if (keyIsP256) {
                             // verify P256 sig
+                            sigVerified =
+                                sigVerifyLib.verifyES256Signature(currentSubject.tbs, abi.encodePacked(r, s), issuerKey);
                         }
+                        // TODO: verify P384 sig
                     }
                 }
-                require(sigVerified, "Invalid cert signature");
+                require(sigVerified, "Failed to verify cert signature");
 
                 // Check for attestation extension
                 (attestationFound, attestationPtr, attestationExtension) =
@@ -175,6 +185,9 @@ abstract contract AndroidNative is NativeX5CBase {
                 if (!provisiongFound) {
                     (provisiongFound,,) = _findOID(x5c[i - 1], currentSubject.extensionPtr, PROVISIONING_INFO_OID);
                 }
+
+                // prepare for next iteration
+                issuerKeyAlgo = currentSubject.subjectPublicKeyAlgo;
             }
         }
     }

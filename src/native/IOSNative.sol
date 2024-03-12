@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {
     NativeX5CBase,
-    P256,
+    ISigVerifyLib,
     X509Helper,
     X509CertObj,
     PublicKeyAlgorithm,
@@ -40,6 +40,8 @@ abstract contract IOSNative is NativeX5CBase {
     error Mismatch_Key_Identifier(bytes32 keyId);
     error Invalid_Cert_Chain();
     error Invalid_UUID();
+
+    constructor(address _sigVerifyLib) NativeX5CBase(_sigVerifyLib) {}
 
     /// @dev configure valid hash of iOS App ID that generates the keypair
     function appIdHash() public view virtual returns (bytes32);
@@ -125,34 +127,38 @@ abstract contract IOSNative is NativeX5CBase {
         returns (bool verified, uint256 extensionPtr, bytes memory attestedPubkey)
     {
         for (uint256 i = 0; i < x5c.length - 1; i++) {
+            X509CertObj memory cert = X509Helper.parseX509DER(x5c[i]);
+
             // check whether the certificate has expired
-            bool certIsValid = X509Helper.certIsNotExpired(x5c[i]);
+            bool certIsValid = block.timestamp >= cert.validityNotBefore && block.timestamp <= cert.validityNotAfter;
             if (!certIsValid) {
-                return (false, 0, hex"");
+                revert("expired certificate found");
             }
 
             // check whether the certificate is signed by a valid and trusted issuer
-            X509CertObj memory cert = X509Helper.parseX509DER(x5c[i]);
             (PublicKeyAlgorithm issuerPubKeyAlgo, bytes memory issuerPubKey) =
                 X509Helper.getSubjectPublicKeyInfo(x5c[i + 1]);
 
-            // TODO: this assumption is incorrect, because aside from credcert
-            // all other cert uses the P384SHA signature algorithm
-            // bool sigVerified = P256.verifySignatureAllowMalleability(
-            //     sha256(cert.tbs),
-            //     uint256(bytes32(cert.signature.substring(0, 32))),
-            //     uint256(bytes32(cert.signature.substring(32, 32))),
-            //     uint256(bytes32(issuerPubKey.substring(0, 32))),
-            //     uint256(bytes32(issuerPubKey.substring(32, 32)))
-            // );
-            // if (!sigVerified) {
-            //     return (false, 0, hex"");
-            // }
+            bool sigVerified;
+            (bytes memory r, bytes memory s) = abi.decode(cert.signature, (bytes, bytes));
+
+            if (
+                cert.issuerSigAlgo == SignatureAlgorithm.SHA256WithECDSA && issuerPubKeyAlgo == PublicKeyAlgorithm.EC256
+            ) {
+                r = _process(r, 32);
+                s = _process(s, 32);
+                sigVerified = sigVerifyLib.verifyES256Signature(cert.tbs, abi.encodePacked(r, s), issuerPubKey);
+            }
+
+            // TODO: P384 sig verification
+
+            require(sigVerified, "Failed to verify cert signature");
 
             // credCert is the leaf
             if (i == 0) {
                 extensionPtr = cert.extensionPtr;
-                attestedPubkey = cert.subjectPublicKey;
+                // EC256
+                attestedPubkey = _process(cert.subjectPublicKey, 64);
             }
 
             // check whether the issuer is trusted. If so, break the loop
@@ -219,13 +225,6 @@ abstract contract IOSNative is NativeX5CBase {
         // sig verification
         bytes32 deviceHash = sha256(deviceIdentity);
         bytes memory message = abi.encodePacked(authData, deviceHash);
-        bytes32 digest = sha256(message);
-        verified = P256.verifySignatureAllowMalleability(
-            digest,
-            uint256(bytes32(signature.substring(0, 32))),
-            uint256(bytes32(signature.substring(32, 32))),
-            uint256(bytes32(attestedPubKey.substring(0, 32))),
-            uint256(bytes32(attestedPubKey.substring(32, 32)))
-        );
+        verified = sigVerifyLib.verifyES256Signature(message, signature, attestedPubKey);
     }
 }
