@@ -73,6 +73,12 @@ abstract contract POMEntrypoint {
 
     function nativeAttestationSchemaId() public view virtual returns (bytes32 NATIVE_MACHINEHOOD_SCHEMA_ID);
 
+    function getAttestationFromDeviceIdentity(NativeAttestPlatform platform, bytes calldata deviceIdentity)
+        public
+        view
+        virtual
+        returns (bytes32 attestationId);
+
     function _platformMapToNativeVerifier(NativeAttestPlatform platform)
         internal
         view
