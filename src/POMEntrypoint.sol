@@ -19,49 +19,73 @@ enum WebAuthNAttestPlatform {
     YUBIKEY
 }
 
-struct ValidationPayloadStruct {
-    bytes attStmt;
-    bytes authData;
-    bytes clientData;
+struct WebAuthNAttestationSchema {
+    bytes32 walletAddress;
+    uint8 platform;
+    bytes32 proofHash;
+}
+
+struct NativeAttestationSchema {
+    uint8 platform;
+    bytes deviceIdentity;
+    bytes attData;
 }
 
 abstract contract POMEntrypoint {
-
     error Missing_Verifier_Or_Platform_Unsupported();
 
-    function nativeAttest(
-        NativeAttestPlatform platform, 
-        bytes calldata deviceIdentity, 
-        bytes[] calldata payload
-    ) external returns (bytes32 attestationId) {
+    function nativeAttest(NativeAttestPlatform platform, bytes calldata deviceIdentity, bytes[] calldata payload)
+        external
+        returns (bytes32 attestationId)
+    {
         address verifier = _platformMapToNativeVerifier(platform);
         if (verifier == address(0)) {
             revert Missing_Verifier_Or_Platform_Unsupported();
         }
         bytes memory attestedData = NativeBase(verifier).verifyAndGetAttestationData(deviceIdentity, payload);
-        attestationId = _attest(attestedData);
+        attestationId = _attestNative(
+            NativeAttestationSchema({platform: uint8(platform), deviceIdentity: deviceIdentity, attData: attestedData})
+        );
     }
 
     function webAuthNAttest(
         WebAuthNAttestPlatform platform,
         bytes32 walletAddress,
-        ValidationPayloadStruct calldata validationPayload
+        bytes calldata attStmt,
+        bytes calldata authData,
+        bytes calldata clientData
     ) external returns (bytes32 attestationId) {
         address verifier = _platformMapToWebAuthNverifier(platform);
         if (verifier == address(0)) {
             revert Missing_Verifier_Or_Platform_Unsupported();
         }
         (bool success, string memory reason) = AttestationVerificationBase(verifier).verifyAttStmt(
-            abi.encodePacked(walletAddress), validationPayload.attStmt, validationPayload.authData, validationPayload.clientData
+            abi.encodePacked(walletAddress), attStmt, authData, clientData
         );
         require(success, reason);
-        bytes32 proofHash = keccak256(abi.encodePacked(validationPayload.attStmt, validationPayload.authData, validationPayload.clientData));
-        attestationId = _attest(abi.encodePacked(proofHash));
+        bytes32 proofHash = keccak256(abi.encodePacked(attStmt, authData, clientData));
+        attestationId = _attestWebAuthn(
+            WebAuthNAttestationSchema({walletAddress: walletAddress, platform: uint8(platform), proofHash: proofHash})
+        );
     }
 
-    function _platformMapToNativeVerifier(NativeAttestPlatform platform) internal virtual view returns (address verifier);
+    function webAuthNAttestationSchemaId() public view virtual returns (bytes32 WEBAUTHN_MACHINEHOOD_SCHEMA_ID);
 
-    function _platformMapToWebAuthNverifier(WebAuthNAttestPlatform platform) internal virtual view returns (address verifier);
+    function nativeAttestationSchemaId() public view virtual returns (bytes32 NATIVE_MACHINEHOOD_SCHEMA_ID);
 
-    function _attest(bytes memory attestationData) internal virtual returns (bytes32 attestationId);
+    function _platformMapToNativeVerifier(NativeAttestPlatform platform)
+        internal
+        view
+        virtual
+        returns (address verifier);
+
+    function _platformMapToWebAuthNverifier(WebAuthNAttestPlatform platform)
+        internal
+        view
+        virtual
+        returns (address verifier);
+
+    function _attestWebAuthn(WebAuthNAttestationSchema memory att) internal virtual returns (bytes32 attestationId);
+
+    function _attestNative(NativeAttestationSchema memory att) internal virtual returns (bytes32 attestationId);
 }
