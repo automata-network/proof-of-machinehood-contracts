@@ -30,6 +30,39 @@ abstract contract NativeX5CBase is NativeBase {
 
     function removeCACert(bytes32 hash) external virtual {}
 
+    function _verifyCertSig(
+        PublicKeyAlgorithm issuerKeyAlgo,
+        SignatureAlgorithm issuerSigAlgo,
+        bytes memory issuerKey,
+        bytes memory signature,
+        bytes memory message
+    ) internal view returns (bool sigVerified) {
+        if (issuerKeyAlgo == PublicKeyAlgorithm.RSA && issuerSigAlgo == SignatureAlgorithm.SHA256WithRSA) {
+            // verify RSA sig
+            (bytes memory e, bytes memory m) = abi.decode(issuerKey, (bytes, bytes));
+            e = _process(e, 3);
+            m = _process(m, m.length);
+            issuerKey = abi.encodePacked(e, m);
+            sigVerified = sigVerifyLib.verifyRS256Signature(message, signature, issuerKey);
+        } else {
+            if (issuerKeyAlgo == PublicKeyAlgorithm.EC256 && issuerSigAlgo == SignatureAlgorithm.SHA384WithECDSA) {
+                revert("Issuer key algo is not compatible with issuer sig algo");
+            } else {
+                bool keyIsP256 = issuerKeyAlgo == PublicKeyAlgorithm.EC256;
+                uint256 keyLength = keyIsP256 ? 64 : 96;
+                issuerKey = _process(issuerKey, keyLength);
+                (bytes memory r, bytes memory s) = abi.decode(signature, (bytes, bytes));
+                r = _process(r, keyLength / 2);
+                s = _process(s, keyLength / 2);
+                if (keyIsP256) {
+                    // verify P256 sig
+                    sigVerified = sigVerifyLib.verifyES256Signature(message, abi.encodePacked(r, s), issuerKey);
+                }
+                // TODO: verify P384 sig
+            }
+        }
+    }
+
     /**
      * @notice Either pads or trims the input, depending on the expected length
      * @param content - the input

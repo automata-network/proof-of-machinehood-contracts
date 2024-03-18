@@ -139,18 +139,8 @@ abstract contract IOSNative is NativeX5CBase {
             (PublicKeyAlgorithm issuerPubKeyAlgo, bytes memory issuerPubKey) =
                 X509Helper.getSubjectPublicKeyInfo(x5c[i + 1]);
 
-            bool sigVerified;
-            (bytes memory r, bytes memory s) = abi.decode(cert.signature, (bytes, bytes));
-
-            if (
-                cert.issuerSigAlgo == SignatureAlgorithm.SHA256WithECDSA && issuerPubKeyAlgo == PublicKeyAlgorithm.EC256
-            ) {
-                r = _process(r, 32);
-                s = _process(s, 32);
-                sigVerified = sigVerifyLib.verifyES256Signature(cert.tbs, abi.encodePacked(r, s), issuerPubKey);
-            }
-
-            // TODO: P384 sig verification
+            bool sigVerified =
+                _verifyCertSig(issuerPubKeyAlgo, cert.issuerSigAlgo, issuerPubKey, cert.signature, cert.tbs);
 
             require(sigVerified, "Failed to verify cert signature");
 
