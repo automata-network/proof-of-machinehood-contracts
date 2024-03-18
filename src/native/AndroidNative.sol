@@ -2,24 +2,18 @@
 pragma solidity ^0.8.0;
 
 import {
-    NativeX5CBase,
-    ISigVerifyLib,
-    X509Helper,
-    X509CertObj,
-    PublicKeyAlgorithm,
-    SignatureAlgorithm
+    NativeX5CBase, X509Helper, X509CertObj, PublicKeyAlgorithm, SignatureAlgorithm
 } from "./base/NativeX5CBase.sol";
 import {BytesUtils} from "../utils/BytesUtils.sol";
 import {Asn1Decode, NodePtr} from "../utils/Asn1Decode.sol";
 
-struct AndroidPayload {
-    bytes[] x5c;
-    bytes signature;
-}
-
+/// @dev basic configuration to deem a valid attestation
+/// as referenced: https://github.com/automata-network/machinehood-rn/blob/e618d5c4440c525eacdd37fef75074c3a7d6a0fc/android/app/src/main/java/com/automata/pomrn/POMVerification.kt#L48-L54
 struct BasicAttestationObject {
+    uint256 attestationVersion;
     SecurityLevel securityLevel;
     string packageName;
+    uint256 packageVersion;
     bytes packageSignature;
     // this can be parsed further by implementation contracts
     // that may require other values that are not in the scope
@@ -71,17 +65,23 @@ abstract contract AndroidNative is NativeX5CBase {
     /// @dev implement this method to specify the set of values that you expect the hardware-backed key to contain
     function _validateAttestation(BasicAttestationObject memory att) internal view virtual returns (bool);
 
+    /**
+     * @notice built-in method to perform verification on the provided payload
+     * @param deviceIdentity unique device identifier
+     * @param payload is an array must contain the following in the CORRECT order:
+     * - index 0: contains the x5c[] certificate chain, encoded in DER
+     * - index 1: the signature that signs over sha256(deviceIdentity) with the attested key
+     */
     function _verifyPayload(bytes calldata deviceIdentity, bytes[] calldata payload)
         internal
         view
         override
         returns (bytes memory attestationData)
     {
-        AndroidPayload memory payloadObj = abi.decode(payload[0], (AndroidPayload));
+        bytes[] memory x5c = abi.decode(payload[0], (bytes[]));
 
         // Step 1: Verify certificate chain
-        (bytes memory attestedPubKey, uint256 attestationPtr, bytes memory attestationExtension) =
-            _verifyCertChain(payloadObj.x5c);
+        (bytes memory attestedPubKey, uint256 attestationPtr, bytes memory attestationExtension) = _verifyCertChain(x5c);
 
         // Step 2: validate attestation details from the corresponding certificate
         BasicAttestationObject memory att = _parseAttestationExtension(attestationExtension, attestationPtr);
@@ -91,7 +91,7 @@ abstract contract AndroidNative is NativeX5CBase {
         }
 
         // Step 3: validate Android_ID
-        bool sigVerified = _verifyAndroidId(deviceIdentity, payloadObj.signature, attestedPubKey);
+        bool sigVerified = _verifyAndroidId(deviceIdentity, payload[1], attestedPubKey);
         if (!sigVerified) {
             revert Invalid_Android_Id();
         }
@@ -134,39 +134,10 @@ abstract contract AndroidNative is NativeX5CBase {
 
                 // TODO: check CRL
 
-                bool sigVerified;
-                if (
-                    issuerKeyAlgo == PublicKeyAlgorithm.RSA
-                        && currentSubject.issuerSigAlgo == SignatureAlgorithm.SHA256WithRSA
-                ) {
-                    // verify RSA sig
-                    (bytes memory e, bytes memory m) = abi.decode(issuerKey, (bytes, bytes));
-                    e = _process(e, 3);
-                    m = _process(m, m.length);
-                    issuerKey = abi.encodePacked(e, m);
-                    sigVerified =
-                        sigVerifyLib.verifyRS256Signature(currentSubject.tbs, currentSubject.signature, issuerKey);
-                } else {
-                    if (
-                        issuerKeyAlgo == PublicKeyAlgorithm.EC256
-                            && currentSubject.issuerSigAlgo == SignatureAlgorithm.SHA384WithECDSA
-                    ) {
-                        revert("Issuer key algo is not compatible with issuer sig algo");
-                    } else {
-                        bool keyIsP256 = issuerKeyAlgo == PublicKeyAlgorithm.EC256;
-                        uint256 keyLength = keyIsP256 ? 64 : 96;
-                        issuerKey = _process(issuerKey, keyLength);
-                        (bytes memory r, bytes memory s) = abi.decode(currentSubject.signature, (bytes, bytes));
-                        r = _process(r, keyLength / 2);
-                        s = _process(s, keyLength / 2);
-                        if (keyIsP256) {
-                            // verify P256 sig
-                            sigVerified =
-                                sigVerifyLib.verifyES256Signature(currentSubject.tbs, abi.encodePacked(r, s), issuerKey);
-                        }
-                        // TODO: verify P384 sig
-                    }
-                }
+                bool sigVerified = _verifyCertSig(
+                    issuerKeyAlgo, currentSubject.issuerSigAlgo, issuerKey, currentSubject.signature, currentSubject.tbs
+                );
+
                 require(sigVerified, "Failed to verify cert signature");
 
                 // Check for attestation extension
@@ -192,6 +163,39 @@ abstract contract AndroidNative is NativeX5CBase {
         }
     }
 
+    function _verifyCertSig(
+        PublicKeyAlgorithm issuerKeyAlgo,
+        SignatureAlgorithm issuerSigAlgo,
+        bytes memory issuerKey,
+        bytes memory signature,
+        bytes memory message
+    ) private view returns (bool sigVerified) {
+        if (issuerKeyAlgo == PublicKeyAlgorithm.RSA && issuerSigAlgo == SignatureAlgorithm.SHA256WithRSA) {
+            // verify RSA sig
+            (bytes memory e, bytes memory m) = abi.decode(issuerKey, (bytes, bytes));
+            e = _process(e, 3);
+            m = _process(m, m.length);
+            issuerKey = abi.encodePacked(e, m);
+            sigVerified = sigVerifyLib.verifyRS256Signature(message, signature, issuerKey);
+        } else {
+            if (issuerKeyAlgo == PublicKeyAlgorithm.EC256 && issuerSigAlgo == SignatureAlgorithm.SHA384WithECDSA) {
+                revert("Issuer key algo is not compatible with issuer sig algo");
+            } else {
+                bool keyIsP256 = issuerKeyAlgo == PublicKeyAlgorithm.EC256;
+                uint256 keyLength = keyIsP256 ? 64 : 96;
+                issuerKey = _process(issuerKey, keyLength);
+                (bytes memory r, bytes memory s) = abi.decode(signature, (bytes, bytes));
+                r = _process(r, keyLength / 2);
+                s = _process(s, keyLength / 2);
+                if (keyIsP256) {
+                    // verify P256 sig
+                    sigVerified = sigVerifyLib.verifyES256Signature(message, abi.encodePacked(r, s), issuerKey);
+                }
+                // TODO: verify P384 sig
+            }
+        }
+    }
+
     function _findOID(bytes memory der, uint256 extensionPtr, bytes memory oid)
         private
         pure
@@ -212,7 +216,7 @@ abstract contract AndroidNative is NativeX5CBase {
                 if (oidFound) {
                     internalPtr = der.nextSiblingOf(internalPtr);
                     retDer = der.bytesAt(internalPtr);
-                    retPtr = der.root();
+                    retPtr = retDer.root();
                 }
             }
             if (ptr.ixl() < parentPtr.ixl()) {
@@ -228,7 +232,9 @@ abstract contract AndroidNative is NativeX5CBase {
         pure
         returns (BasicAttestationObject memory att)
     {
+        // attestationVersion is the 1st element
         attestationPtr = attestationDer.firstChildOf(attestationPtr);
+        att.attestationVersion = attestationDer.uintAt(attestationPtr);
 
         // attestationSecurityLevel is the 2nd element of the KeyDescription sequence
         attestationPtr = attestationDer.nextSiblingOf(attestationPtr);
@@ -243,18 +249,19 @@ abstract contract AndroidNative is NativeX5CBase {
         attestationPtr = attestationDer.nextSiblingOf(attestationPtr);
 
         bytes memory softwareEnforcedBytes = attestationDer.bytesAt(attestationPtr);
-        (bytes memory packageNameBytes, bytes memory packageSignature) =
+        (bytes memory packageNameBytes, bytes memory packageSignature, uint256 packageVersion) =
             _parseSoftwareEnforcedBytes(softwareEnforcedBytes);
 
         att.packageName = string(packageNameBytes);
         att.packageSignature = packageSignature;
+        att.packageVersion = packageVersion;
         att.fullAttestationDer = attestationDer;
     }
 
     function _parseSoftwareEnforcedBytes(bytes memory softwareEnforcedBytes)
         private
         pure
-        returns (bytes memory packageNameBytes, bytes memory packageSignature)
+        returns (bytes memory packageNameBytes, bytes memory packageSignature, uint256 packageVersion)
     {
         uint256 offset;
         uint256 context;
@@ -287,6 +294,7 @@ abstract contract AndroidNative is NativeX5CBase {
         sigPtr = ret.firstChildOf(sigPtr);
 
         packageNameBytes = ret.bytesAt(namePtr);
+        packageVersion = ret.uintAt(ret.nextSiblingOf(namePtr));
         packageSignature = ret.bytesAt(sigPtr);
     }
 
