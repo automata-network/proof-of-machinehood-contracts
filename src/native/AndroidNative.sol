@@ -49,9 +49,9 @@ abstract contract AndroidNative is NativeX5CBase {
     using NodePtr for uint256;
     using BytesUtils for bytes;
 
-    error Invalid_App_Id(bytes32 appIdFound);
     error Invalid_Android_Id();
     error Attestation_Not_Accepted_By_Policy();
+    error Certificate_Revoked(uint256 serialNumber);
 
     // 1.3.6.1.4.1.11129.2.1.17
     bytes constant ATTESTATION_OID = hex"2B06010401D679020111";
@@ -61,6 +61,11 @@ abstract contract AndroidNative is NativeX5CBase {
     uint256 constant ATTESTATION_APPLICATION_ID_CONTEXT_TAG = 709;
 
     constructor(address _sigVerifyLib) NativeX5CBase(_sigVerifyLib) {}
+
+    /// @dev implement getter to determine the revocation status of the given serial number of a certificate
+    /// @dev you must implement a method (access-controlled) to store CRLs on chain
+    /// Official CRL list can be fetched via https://android.googleapis.com/attestation/status
+    function certIsRevoked(uint256 serialNum) public view virtual returns (bool);
 
     /// @dev implement this method to specify the set of values that you expect the hardware-backed key to contain
     function _validateAttestation(BasicAttestationObject memory att) internal view virtual returns (bool);
@@ -124,6 +129,13 @@ abstract contract AndroidNative is NativeX5CBase {
         if (isCACertificate[rootHash]) {
             for (uint256 i = x5c.length - 1; i > 0; i--) {
                 X509CertObj memory currentSubject = X509Helper.parseX509DER(x5c[i - 1]);
+                
+                // check crl
+                bool revoked = certIsRevoked(currentSubject.serialNumber);
+                if (revoked) {
+                    revert Certificate_Revoked(currentSubject.serialNumber);
+                }
+
                 // determine validity
                 if (
                     block.timestamp < currentSubject.validityNotBefore
@@ -131,8 +143,6 @@ abstract contract AndroidNative is NativeX5CBase {
                 ) {
                     revert("expired certificate found");
                 }
-
-                // TODO: check CRL
 
                 bool sigVerified = _verifyCertSig(
                     issuerKeyAlgo, currentSubject.issuerSigAlgo, issuerKey, currentSubject.signature, currentSubject.tbs
