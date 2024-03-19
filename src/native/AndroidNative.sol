@@ -129,7 +129,7 @@ abstract contract AndroidNative is NativeX5CBase {
         if (isCACertificate[rootHash]) {
             for (uint256 i = x5c.length - 1; i > 0; i--) {
                 X509CertObj memory currentSubject = X509Helper.parseX509DER(x5c[i - 1]);
-                
+
                 // check crl
                 bool revoked = certIsRevoked(currentSubject.serialNumber);
                 if (revoked) {

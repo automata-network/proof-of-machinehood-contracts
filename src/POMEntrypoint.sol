@@ -19,6 +19,13 @@ enum WebAuthNAttestPlatform {
     YUBIKEY
 }
 
+enum AttestationStatus {
+    NON_EXISTENT,
+    REGISTERED,
+    EXPIRED,
+    REVOKED
+}
+
 struct WebAuthNAttestationSchema {
     bytes32 walletAddress;
     uint8 platform;
@@ -73,11 +80,20 @@ abstract contract POMEntrypoint {
 
     function nativeAttestationSchemaId() public view virtual returns (bytes32 NATIVE_MACHINEHOOD_SCHEMA_ID);
 
-    function getAttestationFromDeviceIdentity(NativeAttestPlatform platform, bytes calldata deviceIdentity)
+    function getNativeAttestationFromDeviceIdentity(NativeAttestPlatform platform, bytes calldata deviceIdentity)
         public
         view
         virtual
         returns (bytes32 attestationId);
+
+    /**
+     * @notice a much direct getter to check the status of an attestation from the given device identity
+     */
+    function getNativeAttestationStatus(NativeAttestPlatform platform, bytes calldata deviceIdentity)
+        public
+        view
+        virtual
+        returns (AttestationStatus status);
 
     function _platformMapToNativeVerifier(NativeAttestPlatform platform)
         internal
