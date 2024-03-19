@@ -4,13 +4,13 @@ pragma solidity ^0.8.0;
 abstract contract NativeBase {
     function verifyAndGetAttestationData(bytes calldata deviceIdentity, bytes[] calldata payload)
         external
-        returns (bytes memory attestedData)
+        returns (bytes memory attestedData, uint256 expiry)
     {
-        attestedData = _verifyPayload(deviceIdentity, payload);
+        (attestedData, expiry) = _verifyPayload(deviceIdentity, payload);
     }
 
     function _verifyPayload(bytes calldata deviceIdentity, bytes[] calldata payload)
         internal
         virtual
-        returns (bytes memory attestationData);
+        returns (bytes memory attestationData, uint256 expiry);
 }

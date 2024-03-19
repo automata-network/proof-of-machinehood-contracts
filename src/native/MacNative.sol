@@ -26,11 +26,12 @@ abstract contract MacNative is NativeBase {
         internal
         view
         override
-        returns (bytes memory attestationData)
+        returns (bytes memory attestationData, uint256 expiry)
     {
         (bytes memory encodedMessageBytes, bytes memory signature) = abi.decode(payload[0], (bytes, bytes));
-        (uint256 chainId, bytes memory pubKey, uint256 expiredAt) =
-            abi.decode(encodedMessageBytes, (uint256, bytes, uint256));
+        uint256 chainId;
+        bytes memory pubKey;
+        (chainId, pubKey, expiry) = abi.decode(encodedMessageBytes, (uint256, bytes, uint256));
 
         // Check chainId
         if (chainId != block.chainid) {
@@ -38,7 +39,7 @@ abstract contract MacNative is NativeBase {
         }
 
         // Check expiredAt
-        if (expiredAt < block.timestamp) {
+        if (expiry < block.timestamp) {
             revert Expired();
         }
 

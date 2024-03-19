@@ -81,12 +81,15 @@ abstract contract AndroidNative is NativeX5CBase {
         internal
         view
         override
-        returns (bytes memory attestationData)
+        returns (bytes memory attestationData, uint256 expiry)
     {
         bytes[] memory x5c = abi.decode(payload[0], (bytes[]));
 
         // Step 1: Verify certificate chain
-        (bytes memory attestedPubKey, uint256 attestationPtr, bytes memory attestationExtension) = _verifyCertChain(x5c);
+        (X509CertObj memory attestationCert, uint256 attestationPtr, bytes memory attestationExtension) =
+            _verifyCertChain(x5c);
+        bytes memory attestedPubKey = attestationCert.subjectPublicKey;
+        expiry = attestationCert.validityNotAfter;
 
         // Step 2: validate attestation details from the corresponding certificate
         BasicAttestationObject memory att = _parseAttestationExtension(attestationExtension, attestationPtr);
@@ -118,7 +121,7 @@ abstract contract AndroidNative is NativeX5CBase {
     function _verifyCertChain(bytes[] memory x5c)
         internal
         view
-        returns (bytes memory attestedPubKey, uint256 attestationPtr, bytes memory attestationExtension)
+        returns (X509CertObj memory attestationCert, uint256 attestationPtr, bytes memory attestationExtension)
     {
         // Step 1: check if the root contains the trusted key
         (PublicKeyAlgorithm issuerKeyAlgo, bytes memory issuerKey) = X509Helper.getSubjectPublicKeyInfo(x5c[0]);
@@ -154,7 +157,7 @@ abstract contract AndroidNative is NativeX5CBase {
                 (attestationFound, attestationPtr, attestationExtension) =
                     _findOID(x5c[i - 1], currentSubject.extensionPtr, ATTESTATION_OID);
                 if (attestationFound) {
-                    attestedPubKey = currentSubject.subjectPublicKey;
+                    attestationCert = currentSubject;
                     break;
                 } else {
                     if (provisiongFound) {

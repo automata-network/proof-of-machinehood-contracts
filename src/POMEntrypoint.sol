@@ -49,9 +49,11 @@ abstract contract POMEntrypoint {
         if (verifier == address(0)) {
             revert Missing_Verifier_Or_Platform_Unsupported();
         }
-        bytes memory attestedData = NativeBase(verifier).verifyAndGetAttestationData(deviceIdentity, payload);
+        (bytes memory attestedData, uint256 expiry) =
+            NativeBase(verifier).verifyAndGetAttestationData(deviceIdentity, payload);
         attestationId = _attestNative(
-            NativeAttestationSchema({platform: uint8(platform), deviceIdentity: deviceIdentity, attData: attestedData})
+            NativeAttestationSchema({platform: uint8(platform), deviceIdentity: deviceIdentity, attData: attestedData}),
+            expiry
         );
     }
 
@@ -109,5 +111,8 @@ abstract contract POMEntrypoint {
 
     function _attestWebAuthn(WebAuthNAttestationSchema memory att) internal virtual returns (bytes32 attestationId);
 
-    function _attestNative(NativeAttestationSchema memory att) internal virtual returns (bytes32 attestationId);
+    function _attestNative(NativeAttestationSchema memory att, uint256 expiry)
+        internal
+        virtual
+        returns (bytes32 attestationId);
 }

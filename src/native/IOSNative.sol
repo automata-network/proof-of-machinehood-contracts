@@ -56,7 +56,7 @@ abstract contract IOSNative is NativeX5CBase {
         internal
         view
         override
-        returns (bytes memory attestationData)
+        returns (bytes memory attestationData, uint256 expiry)
     {
         IOSPayload memory payloadObj = abi.decode(payload[0], (IOSPayload));
         IOSAssertionPayload memory assertionObj = abi.decode(payload[1], (IOSAssertionPayload));
@@ -79,11 +79,13 @@ abstract contract IOSNative is NativeX5CBase {
         bytes32 expectedNonce = sha256(abi.encodePacked(payloadObj.authData, payloadObj.clientDataHash));
 
         // Step 2: Verify x5c chain, keyId and nonce
-        (bool verified, uint256 extensionPtr, bytes memory attestedPubkey) = _verifyCertChain(payloadObj.x5c);
+        (bool verified, X509CertObj memory credCert) = _verifyCertChain(payloadObj.x5c);
         if (!verified) {
             revert Invalid_Cert_Chain();
         }
-        bytes32 nonce = _extractNonceFromCredCert(payloadObj.x5c[0], extensionPtr);
+        bytes memory attestedPubkey = _process(credCert.subjectPublicKey, 64);
+        expiry = credCert.validityNotAfter;
+        bytes32 nonce = _extractNonceFromCredCert(payloadObj.x5c[0], credCert.extensionPtr);
         if (expectedNonce != nonce) {
             revert Nonce_Mismatch();
         }
@@ -121,11 +123,7 @@ abstract contract IOSNative is NativeX5CBase {
         credentialId = credData.substring(55, credIdLen);
     }
 
-    function _verifyCertChain(bytes[] memory x5c)
-        internal
-        view
-        returns (bool verified, uint256 extensionPtr, bytes memory attestedPubkey)
-    {
+    function _verifyCertChain(bytes[] memory x5c) internal view returns (bool verified, X509CertObj memory credCert) {
         for (uint256 i = 0; i < x5c.length - 1; i++) {
             X509CertObj memory cert = X509Helper.parseX509DER(x5c[i]);
 
@@ -146,9 +144,8 @@ abstract contract IOSNative is NativeX5CBase {
 
             // credCert is the leaf
             if (i == 0) {
-                extensionPtr = cert.extensionPtr;
                 // EC256
-                attestedPubkey = _process(cert.subjectPublicKey, 64);
+                credCert = cert;
             }
 
             // check whether the issuer is trusted. If so, break the loop
