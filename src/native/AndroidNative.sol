@@ -2,7 +2,12 @@
 pragma solidity ^0.8.0;
 
 import {
-    NativeX5CBase, X509Helper, X509CertObj, PublicKeyAlgorithm, SignatureAlgorithm
+    NativeX5CBase, 
+    X509Helper, 
+    X509CertObj, 
+    X509VerificationProofObj, 
+    PublicKeyAlgorithm, 
+    SignatureAlgorithm
 } from "./base/NativeX5CBase.sol";
 import {BytesUtils} from "../utils/BytesUtils.sol";
 import {Asn1Decode, NodePtr} from "../utils/Asn1Decode.sol";
@@ -52,6 +57,7 @@ abstract contract AndroidNative is NativeX5CBase {
     error Invalid_Android_Id();
     error Attestation_Not_Accepted_By_Policy();
     error Certificate_Revoked(uint256 serialNumber);
+    error Invalid_Cert_Chain();
 
     // 1.3.6.1.4.1.11129.2.1.17
     bytes constant ATTESTATION_OID = hex"2B06010401D679020111";
@@ -84,10 +90,16 @@ abstract contract AndroidNative is NativeX5CBase {
         returns (bytes memory attestationData, uint256 expiry)
     {
         bytes[] memory x5c = abi.decode(payload[0], (bytes[]));
+        X509VerificationProofObj memory x5cProof = abi.decode(payload[1], (X509VerificationProofObj));
 
         // Step 1: Verify certificate chain
+        bool verified = _checkX509Proof(x5cProof);
+        if (!verified) {
+            revert Invalid_Cert_Chain();
+        }
+
         (X509CertObj memory attestationCert, uint256 attestationPtr, bytes memory attestationExtension) =
-            _verifyCertChain(x5c);
+           _getAttestationCert(x5c);
         bytes memory attestedPubKey = attestationCert.subjectPublicKey;
         expiry = attestationCert.validityNotAfter;
 
@@ -118,7 +130,7 @@ abstract contract AndroidNative is NativeX5CBase {
     /// @dev we cannot assume that the key attestation certificate extension is in the leaf certificate
     /// @dev instead, we should only trust the one that is closest to the root
     /// See https://developer.android.com/privacy-and-security/security-key-attestation#verifying for more info
-    function _verifyCertChain(bytes[] memory x5c)
+    function _getAttestationCert(bytes[] memory x5c)
         internal
         view
         returns (X509CertObj memory attestationCert, uint256 attestationPtr, bytes memory attestationExtension)
@@ -139,19 +151,19 @@ abstract contract AndroidNative is NativeX5CBase {
                     revert Certificate_Revoked(currentSubject.serialNumber);
                 }
 
-                // determine validity
-                if (
-                    block.timestamp < currentSubject.validityNotBefore
-                        || block.timestamp > currentSubject.validityNotAfter
-                ) {
-                    revert("expired certificate found");
-                }
+                // // determine validity
+                // if (
+                //     block.timestamp < currentSubject.validityNotBefore
+                //         || block.timestamp > currentSubject.validityNotAfter
+                // ) {
+                //     revert("expired certificate found");
+                // }
 
-                bool sigVerified = _verifyCertSig(
-                    issuerKeyAlgo, currentSubject.issuerSigAlgo, issuerKey, currentSubject.signature, currentSubject.tbs
-                );
+                // bool sigVerified = _verifyCertSig(
+                //     issuerKeyAlgo, currentSubject.issuerSigAlgo, issuerKey, currentSubject.signature, currentSubject.tbs
+                // );
 
-                require(sigVerified, "Failed to verify cert signature");
+                // require(sigVerified, "Failed to verify cert signature");
 
                 // Check for attestation extension
                 (attestationFound, attestationPtr, attestationExtension) =
