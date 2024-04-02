@@ -3,10 +3,9 @@ pragma solidity ^0.8.0;
 
 import {
     NativeX5CBase,
-    ISigVerifyLib,
     X509Helper,
     X509CertObj,
-    X509VerificationProofObj,
+    Risc0ProofObj,
     PublicKeyAlgorithm,
     SignatureAlgorithm
 } from "./base/NativeX5CBase.sol";
@@ -40,9 +39,10 @@ abstract contract IOSNative is NativeX5CBase {
     error Nonce_Mismatch();
     error Mismatch_Key_Identifier(bytes32 keyId);
     error Invalid_Cert_Chain();
+    error Untrusted_Root();
     error Invalid_UUID();
 
-    constructor(address _sigVerifyLib) NativeX5CBase(_sigVerifyLib) {}
+    constructor(address _sigVerifyLib, address _x509Verifier) NativeX5CBase(_sigVerifyLib, _x509Verifier) {}
 
     /// @dev configure valid hash of iOS App ID that generates the keypair
     function appIdHash() public view virtual returns (bytes32);
@@ -61,9 +61,16 @@ abstract contract IOSNative is NativeX5CBase {
     {
         IOSPayload memory payloadObj = abi.decode(payload[0], (IOSPayload));
         IOSAssertionPayload memory assertionObj = abi.decode(payload[1], (IOSAssertionPayload));
-        X509VerificationProofObj memory x509Proof = abi.decode(payload[2], (X509VerificationProofObj));
+        Risc0ProofObj memory proof = abi.decode(payload[2], (Risc0ProofObj));
 
         // TODO: verify challenge -> replay protection
+
+        // Step 0: Check whether the root can be trusted
+        bytes[] memory x5c = payloadObj.x5c;
+        bool trusted = caIsTrusted(sha256(x5c[x5c.length - 1]));
+        if (!trusted) {
+            revert Untrusted_Root();
+        }
 
         // Step 1: Validate auth data
         // Do we need to return flags here?
@@ -81,17 +88,20 @@ abstract contract IOSNative is NativeX5CBase {
         bytes32 expectedNonce = sha256(abi.encodePacked(payloadObj.authData, payloadObj.clientDataHash));
 
         // Step 2: Verify x5c chain, keyId and nonce
-        
-        // (bool verified, X509CertObj memory credCert) = _verifyCertChain(payloadObj.x5c);
-        bool verified = _checkX509Proof(x509Proof);
+        X509CertObj memory credCert = X509Helper.parseX509DER(x5c[0]);
+        // determine validity
+        if (block.timestamp < credCert.validityNotBefore || block.timestamp > credCert.validityNotAfter) {
+            revert("credCert expired");
+        }
+
+        bool verified = _checkX509Proof(x5c, proof);
         if (!verified) {
             revert Invalid_Cert_Chain();
         }
 
-        X509CertObj memory credCert = X509Helper.parseX509DER(payloadObj.x5c[0]);
         bytes memory attestedPubkey = _process(credCert.subjectPublicKey, 64);
         expiry = credCert.validityNotAfter;
-        bytes32 nonce = _extractNonceFromCredCert(payloadObj.x5c[0], credCert.extensionPtr);
+        bytes32 nonce = _extractNonceFromCredCert(x5c[0], credCert.extensionPtr);
         if (expectedNonce != nonce) {
             revert Nonce_Mismatch();
         }
@@ -128,41 +138,6 @@ abstract contract IOSNative is NativeX5CBase {
         uint16 credIdLen = uint16(bytes2(credData.substring(53, 2)));
         credentialId = credData.substring(55, credIdLen);
     }
-
-    // function _verifyCertChain(bytes[] memory x5c) internal view returns (bool verified, X509CertObj memory credCert) {
-    //     for (uint256 i = 0; i < x5c.length - 1; i++) {
-    //         X509CertObj memory cert = X509Helper.parseX509DER(x5c[i]);
-
-    //         // check whether the certificate has expired
-    //         bool certIsValid = block.timestamp >= cert.validityNotBefore && block.timestamp <= cert.validityNotAfter;
-    //         if (!certIsValid) {
-    //             revert("expired certificate found");
-    //         }
-
-    //         // check whether the certificate is signed by a valid and trusted issuer
-    //         (PublicKeyAlgorithm issuerPubKeyAlgo, bytes memory issuerPubKey) =
-    //             X509Helper.getSubjectPublicKeyInfo(x5c[i + 1]);
-
-    //         bool sigVerified =
-    //             _verifyCertSig(issuerPubKeyAlgo, cert.issuerSigAlgo, issuerPubKey, cert.signature, cert.tbs);
-
-    //         require(sigVerified, "Failed to verify cert signature");
-
-    //         // credCert is the leaf
-    //         if (i == 0) {
-    //             // EC256
-    //             credCert = cert;
-    //         }
-
-    //         // check whether the issuer is trusted. If so, break the loop
-    //         (bytes memory issuerTbs,, bytes memory issuerSig) = X509Helper.getTbsAndSigInfo(x5c[i + 1]);
-    //         bytes32 issuerHash = sha256(abi.encodePacked(issuerTbs, issuerPubKey, issuerSig));
-    //         if (isCACertificate[issuerHash]) {
-    //             verified = true;
-    //             break;
-    //         }
-    //     }
-    // }
 
     function _extractNonceFromCredCert(bytes memory credCert, uint256 extensionPtr)
         private

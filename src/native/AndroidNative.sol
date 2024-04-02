@@ -2,11 +2,11 @@
 pragma solidity ^0.8.0;
 
 import {
-    NativeX5CBase, 
-    X509Helper, 
-    X509CertObj, 
-    X509VerificationProofObj, 
-    PublicKeyAlgorithm, 
+    NativeX5CBase,
+    X509Helper,
+    X509CertObj,
+    Risc0ProofObj,
+    PublicKeyAlgorithm,
     SignatureAlgorithm
 } from "./base/NativeX5CBase.sol";
 import {BytesUtils} from "../utils/BytesUtils.sol";
@@ -58,6 +58,7 @@ abstract contract AndroidNative is NativeX5CBase {
     error Attestation_Not_Accepted_By_Policy();
     error Certificate_Revoked(uint256 serialNumber);
     error Invalid_Cert_Chain();
+    error Untrusted_Root();
 
     // 1.3.6.1.4.1.11129.2.1.17
     bytes constant ATTESTATION_OID = hex"2B06010401D679020111";
@@ -66,7 +67,7 @@ abstract contract AndroidNative is NativeX5CBase {
     // https://developer.android.com/privacy-and-security/security-key-attestation#key_attestation_ext_schema
     uint256 constant ATTESTATION_APPLICATION_ID_CONTEXT_TAG = 709;
 
-    constructor(address _sigVerifyLib) NativeX5CBase(_sigVerifyLib) {}
+    constructor(address _sigVerifyLib, address _x509Verifier) NativeX5CBase(_sigVerifyLib, _x509Verifier) {}
 
     /// @dev implement getter to determine the revocation status of the given serial number of a certificate
     /// @dev you must implement a method (access-controlled) to store CRLs on chain
@@ -90,16 +91,21 @@ abstract contract AndroidNative is NativeX5CBase {
         returns (bytes memory attestationData, uint256 expiry)
     {
         bytes[] memory x5c = abi.decode(payload[0], (bytes[]));
-        X509VerificationProofObj memory x5cProof = abi.decode(payload[1], (X509VerificationProofObj));
+        Risc0ProofObj memory proof = abi.decode(payload[1], (Risc0ProofObj));
+
+        // Step 0: Check whether the root can be trusted
+        bool trusted = caIsTrusted(sha256(x5c[x5c.length - 1]));
+        if (!trusted) {
+            revert Untrusted_Root();
+        }
 
         // Step 1: Verify certificate chain
-        bool verified = _checkX509Proof(x5cProof);
+        bool verified = _checkX509Proof(x5c, proof);
         if (!verified) {
             revert Invalid_Cert_Chain();
         }
-
         (X509CertObj memory attestationCert, uint256 attestationPtr, bytes memory attestationExtension) =
-           _getAttestationCert(x5c);
+            _getAttestationCert(x5c);
         bytes memory attestedPubKey = attestationCert.subjectPublicKey;
         expiry = attestationCert.validityNotAfter;
 
@@ -151,19 +157,13 @@ abstract contract AndroidNative is NativeX5CBase {
                     revert Certificate_Revoked(currentSubject.serialNumber);
                 }
 
-                // // determine validity
-                // if (
-                //     block.timestamp < currentSubject.validityNotBefore
-                //         || block.timestamp > currentSubject.validityNotAfter
-                // ) {
-                //     revert("expired certificate found");
-                // }
-
-                // bool sigVerified = _verifyCertSig(
-                //     issuerKeyAlgo, currentSubject.issuerSigAlgo, issuerKey, currentSubject.signature, currentSubject.tbs
-                // );
-
-                // require(sigVerified, "Failed to verify cert signature");
+                // determine validity
+                if (
+                    block.timestamp < currentSubject.validityNotBefore
+                        || block.timestamp > currentSubject.validityNotAfter
+                ) {
+                    revert("expired certificate found");
+                }
 
                 // Check for attestation extension
                 (attestationFound, attestationPtr, attestationExtension) =
