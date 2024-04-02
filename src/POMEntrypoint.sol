@@ -16,7 +16,8 @@ enum WebAuthNAttestPlatform {
     INVALID,
     ANDROID,
     WINDOWS,
-    YUBIKEY
+    YUBIKEY,
+    SELFCLAIM // Used exclusively by Apple devices
 }
 
 enum AttestationStatus {
