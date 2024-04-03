@@ -99,21 +99,24 @@ abstract contract AndroidNative is NativeX5CBase {
             revert Untrusted_Root();
         }
 
-        // Step 1: Verify certificate chain
-        bool verified = _checkX509Proof(x5c, proof);
-        if (!verified) {
-            revert Invalid_Cert_Chain();
-        }
-        (X509CertObj memory attestationCert, uint256 attestationPtr, bytes memory attestationExtension) =
-            _getAttestationCert(x5c);
-        bytes memory attestedPubKey = attestationCert.subjectPublicKey;
-        expiry = attestationCert.validityNotAfter;
+        bytes memory attestedPubKey;
+        {
+            // Step 1: Verify certificate chain
+            bool verified = _checkX509Proof(x5c, proof);
+            if (!verified) {
+                revert Invalid_Cert_Chain();
+            }
+            (X509CertObj memory attestationCert, uint256 attestationPtr, bytes memory attestationExtension) =
+                _getAttestationCert(x5c);
+            attestedPubKey = attestationCert.subjectPublicKey;
+            expiry = attestationCert.validityNotAfter;
 
-        // Step 2: validate attestation details from the corresponding certificate
-        BasicAttestationObject memory att = _parseAttestationExtension(attestationExtension, attestationPtr);
-        bool attValidated = _validateAttestation(att);
-        if (!attValidated) {
-            revert Attestation_Not_Accepted_By_Policy();
+            // Step 2: validate attestation details from the corresponding certificate
+            BasicAttestationObject memory att = _parseAttestationExtension(attestationExtension, attestationPtr);
+            bool attValidated = _validateAttestation(att);
+            if (!attValidated) {
+                revert Attestation_Not_Accepted_By_Policy();
+            }
         }
 
         // Step 3: validate Android_ID

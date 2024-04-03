@@ -63,51 +63,54 @@ abstract contract IOSNative is NativeX5CBase {
         IOSAssertionPayload memory assertionObj = abi.decode(payload[1], (IOSAssertionPayload));
         Risc0ProofObj memory proof = abi.decode(payload[2], (Risc0ProofObj));
 
-        // TODO: verify challenge -> replay protection
+        bytes memory attestedPubkey;
+        {
+            // TODO: verify challenge -> replay protection
 
-        // Step 0: Check whether the root can be trusted
-        bytes[] memory x5c = payloadObj.x5c;
-        bool trusted = caIsTrusted(sha256(x5c[x5c.length - 1]));
-        if (!trusted) {
-            revert Untrusted_Root();
-        }
+            // Step 0: Check whether the root can be trusted
+            bytes[] memory x5c = payloadObj.x5c;
+            bool trusted = caIsTrusted(sha256(x5c[x5c.length - 1]));
+            if (!trusted) {
+                revert Untrusted_Root();
+            }
 
-        // Step 1: Validate auth data
-        // Do we need to return flags here?
-        (bytes32 rpid,, uint32 counter, bytes memory credData) = _parseAuthData(payloadObj.authData);
-        (bytes16 aaguid, bytes memory credentialId) = _parseCredData(credData);
-        if (rpid != appIdHash()) {
-            revert Invalid_App_Id_Hash(rpid);
-        }
-        if (counter > 0) {
-            revert Invalid_Count();
-        }
-        if (!_aaguidIsValid(aaguid)) {
-            revert Invalid_AAGUID(aaguid);
-        }
-        bytes32 expectedNonce = sha256(abi.encodePacked(payloadObj.authData, payloadObj.clientDataHash));
+            // Step 1: Validate auth data
+            // Do we need to return flags here?
+            (bytes32 rpid,, uint32 counter, bytes memory credData) = _parseAuthData(payloadObj.authData);
+            (bytes16 aaguid, bytes memory credentialId) = _parseCredData(credData);
+            if (rpid != appIdHash()) {
+                revert Invalid_App_Id_Hash(rpid);
+            }
+            if (counter > 0) {
+                revert Invalid_Count();
+            }
+            if (!_aaguidIsValid(aaguid)) {
+                revert Invalid_AAGUID(aaguid);
+            }
+            bytes32 expectedNonce = sha256(abi.encodePacked(payloadObj.authData, payloadObj.clientDataHash));
 
-        // Step 2: Verify x5c chain, keyId and nonce
-        X509CertObj memory credCert = X509Helper.parseX509DER(x5c[0]);
-        // determine validity
-        if (block.timestamp < credCert.validityNotBefore || block.timestamp > credCert.validityNotAfter) {
-            revert("credCert expired");
-        }
+            // Step 2: Verify x5c chain, keyId and nonce
+            X509CertObj memory credCert = X509Helper.parseX509DER(x5c[0]);
+            // determine validity
+            if (block.timestamp < credCert.validityNotBefore || block.timestamp > credCert.validityNotAfter) {
+                revert("credCert expired");
+            }
 
-        bool verified = _checkX509Proof(x5c, proof);
-        if (!verified) {
-            revert Invalid_Cert_Chain();
-        }
+            bool verified = _checkX509Proof(x5c, proof);
+            if (!verified) {
+                revert Invalid_Cert_Chain();
+            }
 
-        bytes memory attestedPubkey = _process(credCert.subjectPublicKey, 64);
-        expiry = credCert.validityNotAfter;
-        bytes32 nonce = _extractNonceFromCredCert(x5c[0], credCert.extensionPtr);
-        if (expectedNonce != nonce) {
-            revert Nonce_Mismatch();
-        }
-        bytes32 keyIdFound = sha256(attestedPubkey);
-        if (keyIdFound != sha256(credentialId)) {
-            revert Mismatch_Key_Identifier(keyIdFound);
+            attestedPubkey = _process(credCert.subjectPublicKey, 64);
+            expiry = credCert.validityNotAfter;
+            bytes32 nonce = _extractNonceFromCredCert(x5c[0], credCert.extensionPtr);
+            if (expectedNonce != nonce) {
+                revert Nonce_Mismatch();
+            }
+            bytes32 keyIdFound = sha256(attestedPubkey);
+            if (keyIdFound != sha256(credentialId)) {
+                revert Mismatch_Key_Identifier(keyIdFound);
+            }
         }
 
         // Step 3: Verify Device UUID
