@@ -59,6 +59,7 @@ abstract contract AndroidNative is NativeX5CBase {
     error Certificate_Revoked(uint256 serialNumber);
     error Invalid_Cert_Chain();
     error Untrusted_Root();
+    error Missing_Attestation();
 
     // 1.3.6.1.4.1.11129.2.1.17
     bytes constant ATTESTATION_OID = hex"2B06010401D679020111";
@@ -91,7 +92,8 @@ abstract contract AndroidNative is NativeX5CBase {
         returns (bytes memory attestationData, uint256 expiry)
     {
         bytes[] memory x5c = abi.decode(payload[0], (bytes[]));
-        Risc0ProofObj memory proof = abi.decode(payload[1], (Risc0ProofObj));
+        // the deviceId signature occupies payload[1]
+        Risc0ProofObj memory proof = abi.decode(payload[2], (Risc0ProofObj));
 
         // Step 0: Check whether the root can be trusted
         bool trusted = caIsTrusted(sha256(x5c[x5c.length - 1]));
@@ -106,8 +108,11 @@ abstract contract AndroidNative is NativeX5CBase {
             if (!verified) {
                 revert Invalid_Cert_Chain();
             }
-            (X509CertObj memory attestationCert, uint256 attestationPtr, bytes memory attestationExtension) =
+            (bool attestationFound, X509CertObj memory attestationCert, uint256 attestationPtr, bytes memory attestationExtension) =
                 _getAttestationCert(x5c);
+            if (!attestationFound) {
+                revert Missing_Attestation();
+            }
             attestedPubKey = attestationCert.subjectPublicKey;
             expiry = attestationCert.validityNotAfter;
 
@@ -142,51 +147,46 @@ abstract contract AndroidNative is NativeX5CBase {
     function _getAttestationCert(bytes[] memory x5c)
         internal
         view
-        returns (X509CertObj memory attestationCert, uint256 attestationPtr, bytes memory attestationExtension)
+        returns (bool attestationFound, X509CertObj memory attestationCert, uint256 attestationPtr, bytes memory attestationExtension)
     {
         // Step 1: check if the root contains the trusted key
-        (PublicKeyAlgorithm issuerKeyAlgo, bytes memory issuerKey) = X509Helper.getSubjectPublicKeyInfo(x5c[0]);
-        (bytes memory tbs,, bytes memory sig) = X509Helper.getTbsAndSigInfo(x5c[0]);
-        bytes32 rootHash = sha256(abi.encodePacked(tbs, issuerKey, sig));
         bool provisiongFound;
-        bool attestationFound;
-        if (isCACertificate[rootHash]) {
-            for (uint256 i = x5c.length - 1; i > 0; i--) {
-                X509CertObj memory currentSubject = X509Helper.parseX509DER(x5c[i - 1]);
+        for (uint256 i = x5c.length - 1; i >= 0;) {
+            X509CertObj memory currentSubject = X509Helper.parseX509DER(x5c[i]);
 
-                // check crl
-                bool revoked = certIsRevoked(currentSubject.serialNumber);
-                if (revoked) {
-                    revert Certificate_Revoked(currentSubject.serialNumber);
+            // check crl
+            bool revoked = certIsRevoked(currentSubject.serialNumber);
+            if (revoked) {
+                revert Certificate_Revoked(currentSubject.serialNumber);
+            }
+
+            // determine validity
+            if (
+                block.timestamp < currentSubject.validityNotBefore
+                    || block.timestamp > currentSubject.validityNotAfter
+            ) {
+                revert("expired certificate found");
+            }
+
+            // Check for attestation extension
+            (attestationFound, attestationPtr, attestationExtension) =
+                _findOID(x5c[i], currentSubject.extensionPtr, ATTESTATION_OID);
+            if (attestationFound) {
+                attestationCert = currentSubject;
+                break;
+            } else {
+                if (provisiongFound) {
+                    revert("cert does not contain valid attestation");
                 }
+            }
 
-                // determine validity
-                if (
-                    block.timestamp < currentSubject.validityNotBefore
-                        || block.timestamp > currentSubject.validityNotAfter
-                ) {
-                    revert("expired certificate found");
-                }
+            // Check for provisioning extension
+            if (!provisiongFound) {
+                (provisiongFound,,) = _findOID(x5c[i], currentSubject.extensionPtr, PROVISIONING_INFO_OID);
+            }
 
-                // Check for attestation extension
-                (attestationFound, attestationPtr, attestationExtension) =
-                    _findOID(x5c[i - 1], currentSubject.extensionPtr, ATTESTATION_OID);
-                if (attestationFound) {
-                    attestationCert = currentSubject;
-                    break;
-                } else {
-                    if (provisiongFound) {
-                        revert("cert does not contain valid attestation");
-                    }
-                }
-
-                // Check for provisioning extension
-                if (!provisiongFound) {
-                    (provisiongFound,,) = _findOID(x5c[i - 1], currentSubject.extensionPtr, PROVISIONING_INFO_OID);
-                }
-
-                // prepare for next iteration
-                issuerKeyAlgo = currentSubject.subjectPublicKeyAlgo;
+            unchecked {
+                i--;
             }
         }
     }
