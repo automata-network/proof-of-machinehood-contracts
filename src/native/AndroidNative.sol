@@ -113,7 +113,7 @@ abstract contract AndroidNative is NativeX5CBase {
             if (!attestationFound) {
                 revert Missing_Attestation();
             }
-            attestedPubKey = attestationCert.subjectPublicKey;
+            attestedPubKey = _process(attestationCert.subjectPublicKey, 64);
             expiry = attestationCert.validityNotAfter;
 
             // Step 2: validate attestation details from the corresponding certificate
