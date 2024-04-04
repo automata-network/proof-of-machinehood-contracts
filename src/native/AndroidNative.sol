@@ -108,12 +108,16 @@ abstract contract AndroidNative is NativeX5CBase {
             if (!verified) {
                 revert Invalid_Cert_Chain();
             }
-            (bool attestationFound, X509CertObj memory attestationCert, uint256 attestationPtr, bytes memory attestationExtension) =
-                _getAttestationCert(x5c);
+            (
+                bool attestationFound,
+                X509CertObj memory attestationCert,
+                uint256 attestationPtr,
+                bytes memory attestationExtension
+            ) = _getAttestationCert(x5c);
             if (!attestationFound) {
                 revert Missing_Attestation();
             }
-            attestedPubKey = _process(attestationCert.subjectPublicKey, 64);
+            attestedPubKey = attestationCert.subjectPublicKey;
             expiry = attestationCert.validityNotAfter;
 
             // Step 2: validate attestation details from the corresponding certificate
@@ -125,7 +129,7 @@ abstract contract AndroidNative is NativeX5CBase {
         }
 
         // Step 3: validate Android_ID
-        bool sigVerified = _verifyAndroidId(deviceIdentity, payload[1], attestedPubKey);
+        bool sigVerified = _verifyAndroidId(deviceIdentity, payload[1], _process(attestedPubKey, 64));
         if (!sigVerified) {
             revert Invalid_Android_Id();
         }
@@ -147,7 +151,12 @@ abstract contract AndroidNative is NativeX5CBase {
     function _getAttestationCert(bytes[] memory x5c)
         internal
         view
-        returns (bool attestationFound, X509CertObj memory attestationCert, uint256 attestationPtr, bytes memory attestationExtension)
+        returns (
+            bool attestationFound,
+            X509CertObj memory attestationCert,
+            uint256 attestationPtr,
+            bytes memory attestationExtension
+        )
     {
         // Step 1: check if the root contains the trusted key
         bool provisiongFound;
@@ -161,10 +170,8 @@ abstract contract AndroidNative is NativeX5CBase {
             }
 
             // determine validity
-            if (
-                block.timestamp < currentSubject.validityNotBefore
-                    || block.timestamp > currentSubject.validityNotAfter
-            ) {
+            if (block.timestamp < currentSubject.validityNotBefore || block.timestamp > currentSubject.validityNotAfter)
+            {
                 revert("expired certificate found");
             }
 

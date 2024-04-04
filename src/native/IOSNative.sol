@@ -101,7 +101,7 @@ abstract contract IOSNative is NativeX5CBase {
                 revert Invalid_Cert_Chain();
             }
 
-            attestedPubkey = _process(credCert.subjectPublicKey, 64);
+            attestedPubkey = credCert.subjectPublicKey;
             expiry = credCert.validityNotAfter;
             bytes32 nonce = _extractNonceFromCredCert(x5c[0], credCert.extensionPtr);
             if (expectedNonce != nonce) {
@@ -114,7 +114,8 @@ abstract contract IOSNative is NativeX5CBase {
         }
 
         // Step 3: Verify Device UUID
-        bool uuidVerified = _verifyUUID(deviceIdentity, attestedPubkey, assertionObj.signature, assertionObj.authData);
+        bool uuidVerified =
+            _verifyUUID(deviceIdentity, _process(attestedPubkey, 64), assertionObj.signature, assertionObj.authData);
         if (!uuidVerified) {
             revert Invalid_UUID();
         }
