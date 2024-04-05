@@ -51,8 +51,8 @@ struct RootOfTrust {
 
 abstract contract AndroidNative is NativeX5CBase {
     using Asn1Decode for bytes;
-    using NodePtr for uint256;
     using BytesUtils for bytes;
+    using NodePtr for uint256;
 
     error Invalid_Android_Id();
     error Attestation_Not_Accepted_By_Policy();
@@ -298,54 +298,5 @@ abstract contract AndroidNative is NativeX5CBase {
         packageNameBytes = ret.bytesAt(namePtr);
         packageVersion = ret.uintAt(ret.nextSiblingOf(namePtr));
         packageSignature = ret.bytesAt(sigPtr);
-    }
-
-    /// @dev if a tag belongs to the context-specific class (8th bit = 1, 7th bit = 0)
-    /// that means a content is being tagged with a number in square brackets, [N]
-    /// if N > 30 (11110), the tag is encoded in long form
-    /// @return offset - the position of the last tag byte
-    /// @return context - the context number that the content is tagged with
-    function _getContextNumberFromTag(bytes memory der) private pure returns (uint256 offset, uint256 context) {
-        bool isContextSpecific = der[0] & 0x80 == 0x80;
-        require(isContextSpecific, "provided DER does not have a context-specific tag");
-        bytes1 val = der[0] & 0x1f;
-        bool tagIsLong = val == 0x1f;
-        if (tagIsLong) {
-            offset = 1;
-            bool stop = der[offset] & 0x80 == 0x00;
-            while (!stop) {
-                context += uint8(bytes1(der[offset] & 0x7f));
-                context <<= 7;
-                stop = der[++offset] & 0x80 == 0x00;
-            }
-            context += uint8(bytes1(der[offset] & 0x7f));
-        } else {
-            context = uint8(val);
-        }
-    }
-
-    /// Modified from Asn1Decode.sol to accommodate long-form tags
-    /// @param ix refers to the index of the last tag byte
-    function _readNodeLength(bytes memory der, uint256 ix, uint256 tagSize) private pure returns (uint256) {
-        uint256 length;
-        uint80 ixFirstContentByte;
-        uint80 ixLastContentByte;
-        if ((der[ix + 1] & 0x80) == 0) {
-            length = uint8(der[ix + 1]);
-            ixFirstContentByte = uint80(ix + 2);
-            ixLastContentByte = uint80(ixFirstContentByte + length - 1);
-        } else {
-            uint8 lengthbytesLength = uint8(der[ix + 1] & 0x7F);
-            if (lengthbytesLength == 1) {
-                length = der.readUint8(ix + 2);
-            } else if (lengthbytesLength == 2) {
-                length = der.readUint16(ix + 2);
-            } else {
-                length = uint256(der.readBytesN(ix + 2, lengthbytesLength) >> (32 - lengthbytesLength) * 8);
-            }
-            ixFirstContentByte = uint80(ix + 2 + lengthbytesLength);
-            ixLastContentByte = uint80(ixFirstContentByte + length - 1);
-        }
-        return NodePtr.getPtr(ix + 1 - tagSize, ixFirstContentByte, ixLastContentByte);
     }
 }

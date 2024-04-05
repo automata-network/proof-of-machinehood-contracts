@@ -138,9 +138,10 @@ abstract contract IOSNative is NativeX5CBase {
     }
 
     function _parseCredData(bytes memory credData) private pure returns (bytes16 aaguid, bytes memory credentialId) {
-        aaguid = bytes16(credData.substring(37, 16));
-        uint16 credIdLen = uint16(bytes2(credData.substring(53, 2)));
-        credentialId = credData.substring(55, credIdLen);
+        aaguid = bytes16(credData.substring(0, 16));
+        uint16 credIdLen = uint16(bytes2(credData.substring(16, 2)));
+        require(uint256(credIdLen) == credData.length - 18, "credData length mismatch");
+        credentialId = credData.substring(18, credIdLen);
     }
 
     function _extractNonceFromCredCert(bytes memory credCert, uint256 extensionPtr)
@@ -164,8 +165,18 @@ abstract contract IOSNative is NativeX5CBase {
                 if (credCert.bytesAt(internalPtr).equals(NONCE_OID)) {
                     // Nonce found
                     internalPtr = credCert.nextSiblingOf(internalPtr);
+                    internalPtr = credCert.rootOfOctetStringAt(internalPtr);
                     internalPtr = credCert.firstChildOf(internalPtr);
-                    nonce = bytes32(credCert.bytesAt(internalPtr));
+                    bytes memory nonceDer = credCert.allBytesAt(internalPtr);
+                    (uint256 offset, uint256 context) = _getContextNumberFromTag(nonceDer);
+                    uint256 noncePtr = _readNodeLength(nonceDer, offset, offset + 1);
+                    if (context == 1) {
+                        nonceDer = nonceDer.bytesAt(noncePtr);
+                        noncePtr = _readNodeLength(nonceDer, 0, 1);
+                        nonce = bytes32(nonceDer.bytesAt(noncePtr));
+                    } else {
+                        revert("context not found");
+                    }
                     break;
                 }
             }
