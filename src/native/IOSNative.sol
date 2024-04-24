@@ -108,7 +108,7 @@ abstract contract IOSNative is NativeX5CBase {
                 revert Nonce_Mismatch();
             }
             bytes32 keyIdFound = sha256(attestedPubkey);
-            if (keyIdFound != sha256(credentialId)) {
+            if (keyIdFound != bytes32(credentialId)) {
                 revert Mismatch_Key_Identifier(keyIdFound);
             }
         }
@@ -140,7 +140,7 @@ abstract contract IOSNative is NativeX5CBase {
     function _parseCredData(bytes memory credData) private pure returns (bytes16 aaguid, bytes memory credentialId) {
         aaguid = bytes16(credData.substring(0, 16));
         uint16 credIdLen = uint16(bytes2(credData.substring(16, 2)));
-        require(uint256(credIdLen) == credData.length - 18, "credData length mismatch");
+        require(credIdLen == 32, "invalid credId length");
         credentialId = credData.substring(18, credIdLen);
     }
 
@@ -207,7 +207,7 @@ abstract contract IOSNative is NativeX5CBase {
 
         // sig verification
         bytes32 deviceHash = sha256(deviceIdentity);
-        bytes memory message = abi.encodePacked(authData, deviceHash);
-        verified = sigVerifyLib.verifyES256Signature(message, signature, attestedPubKey);
+        bytes32 message = sha256(abi.encodePacked(authData, deviceHash));
+        verified = sigVerifyLib.verifyES256Signature(abi.encodePacked(message), signature, attestedPubKey);
     }
 }
