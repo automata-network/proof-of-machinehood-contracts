@@ -18,6 +18,7 @@ enum WebAuthNAttestPlatform {
     WINDOWS,
     YUBIKEY,
     SELFCLAIM // Used exclusively by Apple devices
+
 }
 
 enum AttestationStatus {
@@ -90,13 +91,22 @@ abstract contract POMEntrypoint {
         returns (bytes32 attestationId);
 
     /**
-     * @notice a much direct getter to check the status of an attestation from the given device identity
+     * @notice Gets the WebAuthN attestation ID and status from the given device identity
      */
-    function getNativeAttestationStatus(NativeAttestPlatform platform, bytes calldata deviceIdentity)
-        public
+    function getWebAuthNAttestationStatus(WebAuthNAttestPlatform platform, address walletAddress)
+        external
         view
         virtual
-        returns (AttestationStatus status);
+        returns (bytes32 attestationId, AttestationStatus status);
+
+    /**
+     * @notice Gets the native attestation ID and status from the given device identity
+     */
+    function getNativeAttestationStatus(NativeAttestPlatform platform, bytes calldata deviceIdentity)
+        external
+        view
+        virtual
+        returns (bytes32 attestationId, AttestationStatus status);
 
     function _platformMapToNativeVerifier(NativeAttestPlatform platform)
         internal
