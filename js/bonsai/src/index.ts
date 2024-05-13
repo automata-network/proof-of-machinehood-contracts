@@ -1,6 +1,6 @@
-import * as input from './input';
-import * as snark from './snark';
-import * as server from './server';
+import * as Input from './input';
+import * as Snark from './snark';
+import * as Server from './server';
 import env from 'dotenv';
 import { BytesLike } from 'ethers';
 import { convertArrToHex } from './utils';
@@ -18,25 +18,25 @@ export type Output = {
 
 export async function generateSnarkProofFromDerChain(der: Array<string>): Promise<Output> {
     // Step 0: Check existence of the ImageId
-    const imageIdResponse = await server.checkStatus(server.SessionType.ImageId, X509_VERIFIER_IMAGE_ID);
+    const imageIdResponse = await Server.checkStatus(Server.SessionType.ImageId, X509_VERIFIER_IMAGE_ID);
     if (imageIdResponse.status !== 'EXISTS') {
         throw new Error("The ELF binary for the provided ImageID has not been uploaded");
     }
 
     // Step 1: Serialize the input
-    const serializedInput = await input.serializeDer(der);
+    const serializedInput = await Input.serializeDer(der);
 
     // Step 2: Create a Prove session
-    const proveUuid = await server.createProofSession(X509_VERIFIER_IMAGE_ID, "", serializedInput);
+    const proveUuid = await Server.createProofSession(X509_VERIFIER_IMAGE_ID, "", serializedInput);
 
     // Step 3: Wait until a Prove session becomes successful
-    let proveResponse = await server.checkStatus(server.SessionType.Prove, proveUuid);
+    let proveResponse = await Server.checkStatus(Server.SessionType.Prove, proveUuid);
     while (proveResponse.status === 'RUNNING') {
         // calls /check status every 15 seconds (default)
         setTimeout(
             async() => {
-                proveResponse = await server.checkStatus(
-                    server.SessionType.Prove,
+                proveResponse = await Server.checkStatus(
+                    Server.SessionType.Prove,
                     proveUuid
                 );
             }, 
@@ -48,26 +48,29 @@ export async function generateSnarkProofFromDerChain(der: Array<string>): Promis
     }
 
     // Step 4: Convert STARK to SNARK proof
-    const snarkUuid = await server.createSnarkSession(proveUuid);
+    const snarkUuid = await Server.createSnarkSession(proveUuid);
     
     // Step 5: Wait until a SNARK session becomes successful
-    let snarkResponse = await server.checkStatus(server.SessionType.Snark, snarkUuid);
+    let snarkResponse = await Server.checkStatus(Server.SessionType.Snark, snarkUuid);
     while (snarkResponse.status === 'RUNNING') {
         // calls /check status every 15 seconds (default)
         setTimeout(
             async() => {
-                snarkResponse = await server.checkStatus(
-                    server.SessionType.Snark,
+                snarkResponse = await Server.checkStatus(
+                    Server.SessionType.Snark,
                     snarkUuid
                 );
             }, 
             sleepIntervalInSeconds * 1000
         );
     }
+    if (snarkResponse.status !== 'SUCCEEDED') {
+        throw new Error("Failed to generate STARK proof");
+    }
 
     // Step 6: Serialize the SNARK proofs to seal bytes
     const snarkObj = snarkResponse.output.snark;
-    const seal = snark.abiEncodeSnarkProof(snarkObj);
+    const seal = Snark.abiEncodeSnarkProof(snarkObj);
     return {
         journal: convertArrToHex([snarkObj.output.journal])[0],
         post_state_digest: convertArrToHex([snarkObj.output.post_state_digest])[0],

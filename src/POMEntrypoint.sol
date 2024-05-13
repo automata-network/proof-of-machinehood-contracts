@@ -84,12 +84,6 @@ abstract contract POMEntrypoint {
 
     function nativeAttestationSchemaId() public view virtual returns (bytes32 NATIVE_MACHINEHOOD_SCHEMA_ID);
 
-    function getNativeAttestationFromDeviceIdentity(NativeAttestPlatform platform, bytes calldata deviceIdentity)
-        public
-        view
-        virtual
-        returns (bytes32 attestationId);
-
     /**
      * @notice Gets the WebAuthN attestation ID and status from the given device identity
      */
