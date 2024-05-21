@@ -62,7 +62,7 @@ export async function createProofSession(
 }
 
 export async function createSnarkSession(proveUuid: string): Promise<string> {
-    const url = BONSAI_URL + `/snark/session?uuid=${proveUuid}`;
+    const url = BONSAI_URL! + `/snark/session?uuid=${proveUuid}`;
     const reqOption = {
         method: 'POST'
     };
