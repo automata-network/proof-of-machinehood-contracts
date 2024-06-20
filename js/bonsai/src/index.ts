@@ -8,7 +8,6 @@ export const X509_VERIFIER_IMAGE_ID = 'cc5501e5a9e523737c67ad48e7ac8a2027a9b612f
 
 export type Output = {
     journal: BytesLike,
-    post_state_digest: BytesLike,
     seal: BytesLike
 }
 
@@ -85,7 +84,6 @@ export async function generateSnarkProofFromDerChain(bonsaiApiKey: string, der: 
 
     const ret = {
         journal: convertArrToHex([snarkObj.journal])[0],
-        post_state_digest: convertArrToHex([snarkObj.post_state_digest])[0],
         seal: seal
     };
 
