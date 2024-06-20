@@ -5,7 +5,6 @@ import {
     NativeX5CBase,
     X509Helper,
     X509CertObj,
-    Risc0ProofObj,
     PublicKeyAlgorithm,
     SignatureAlgorithm
 } from "./base/NativeX5CBase.sol";
@@ -57,7 +56,6 @@ abstract contract AndroidNative is NativeX5CBase {
     error Invalid_Android_Id();
     error Attestation_Not_Accepted_By_Policy();
     error Certificate_Revoked(uint256 serialNumber);
-    error Invalid_Cert_Chain();
     error Untrusted_Root();
     error Missing_Attestation();
 
@@ -93,7 +91,7 @@ abstract contract AndroidNative is NativeX5CBase {
     {
         bytes[] memory x5c = abi.decode(payload[0], (bytes[]));
         // the deviceId signature occupies payload[1]
-        Risc0ProofObj memory proof = abi.decode(payload[2], (Risc0ProofObj));
+        bytes memory seal = payload[2];
 
         // Step 0: Check whether the root can be trusted
         bool trusted = caIsTrusted(sha256(x5c[x5c.length - 1]));
@@ -104,10 +102,7 @@ abstract contract AndroidNative is NativeX5CBase {
         bytes memory attestedPubKey;
         {
             // Step 1: Verify certificate chain
-            bool verified = _checkX509Proof(x5c, proof);
-            if (!verified) {
-                revert Invalid_Cert_Chain();
-            }
+            _checkX509Proof(x5c, seal);
             (
                 bool attestationFound,
                 X509CertObj memory attestationCert,

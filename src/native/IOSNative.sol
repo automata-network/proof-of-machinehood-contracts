@@ -5,7 +5,6 @@ import {
     NativeX5CBase,
     X509Helper,
     X509CertObj,
-    Risc0ProofObj,
     PublicKeyAlgorithm,
     SignatureAlgorithm
 } from "./base/NativeX5CBase.sol";
@@ -38,7 +37,6 @@ abstract contract IOSNative is NativeX5CBase {
     error Invalid_AAGUID(bytes16 aaguid);
     error Nonce_Mismatch();
     error Mismatch_Key_Identifier(bytes32 keyId);
-    error Invalid_Cert_Chain();
     error Untrusted_Root();
     error Invalid_UUID();
 
@@ -61,7 +59,7 @@ abstract contract IOSNative is NativeX5CBase {
     {
         IOSPayload memory payloadObj = abi.decode(payload[0], (IOSPayload));
         IOSAssertionPayload memory assertionObj = abi.decode(payload[1], (IOSAssertionPayload));
-        Risc0ProofObj memory proof = abi.decode(payload[2], (Risc0ProofObj));
+        bytes memory seal = payload[2];
 
         bytes memory attestedPubkey;
         {
@@ -96,10 +94,7 @@ abstract contract IOSNative is NativeX5CBase {
                 revert("credCert expired");
             }
 
-            bool verified = _checkX509Proof(x5c, proof);
-            if (!verified) {
-                revert Invalid_Cert_Chain();
-            }
+            _checkX509Proof(x5c, seal);
 
             attestedPubkey = credCert.subjectPublicKey;
             expiry = credCert.validityNotAfter;

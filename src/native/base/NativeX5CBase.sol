@@ -10,11 +10,6 @@ import {X509Helper, X509CertObj, PublicKeyAlgorithm, SignatureAlgorithm} from ".
 
 import {X509ChainVerifier} from "@automata-network/x509-zk-verifier/X509ChainVerifier.sol";
 
-struct Risc0ProofObj {
-    bytes32 postStateDigest;
-    bytes seal;
-}
-
 abstract contract NativeX5CBase is NativeBase {
     using BytesUtils for bytes;
     using NodePtr for uint256;
@@ -33,8 +28,8 @@ abstract contract NativeX5CBase is NativeBase {
 
     function caIsTrusted(bytes32 hash) public view virtual returns (bool) {}
 
-    function _checkX509Proof(bytes[] memory x5c, Risc0ProofObj memory proof) internal view returns (bool verified) {
-        verified = x509Verifier.verifyX509ChainProof(x5c, proof.postStateDigest, proof.seal);
+    function _checkX509Proof(bytes[] memory x5c, bytes memory seal) internal view {
+        x509Verifier.verifyX509ChainProof(x5c, seal);
     }
 
     /**
