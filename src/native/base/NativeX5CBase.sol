@@ -9,10 +9,12 @@ import {NativeBase} from "./NativeBase.sol";
 import {X509Helper, X509CertObj, PublicKeyAlgorithm, SignatureAlgorithm} from "../x509/X509Helper.sol";
 
 import {X509ChainVerifier} from "@automata-network/x509-zk-verifier/X509ChainVerifier.sol";
+import {ECDSA} from "solady/utils/ECDSA.sol";
 
 abstract contract NativeX5CBase is NativeBase {
     using BytesUtils for bytes;
     using NodePtr for uint256;
+    using ECDSA for bytes32;
 
     ISigVerifyLib public immutable sigVerifyLib;
     X509ChainVerifier public immutable x509Verifier;
@@ -22,14 +24,36 @@ abstract contract NativeX5CBase is NativeBase {
         x509Verifier = X509ChainVerifier(_x509Verifier);
     }
 
+    error Unauthorized_Tee_Address(address recovered);
+
     function addCACert(bytes32 hash) external virtual {}
 
     function removeCACert(bytes32 hash) external virtual {}
 
     function caIsTrusted(bytes32 hash) public view virtual returns (bool) {}
 
+    function teeIsTrusted(address tee) public view virtual returns (bool) {}
+
     function _checkX509Proof(bytes[] memory x5c, bytes memory seal) internal view {
+        // risc0 reverts if failed
         x509Verifier.verifyX509ChainProof(x5c, seal);
+    }
+
+    function _checkTeeProof(bytes[] memory x5c, bytes memory sig) internal view {
+        // keccak256(x5c) as digest
+        bytes memory packed;
+
+        for (uint256 i = 0; i < x5c.length;) {
+            packed = abi.encodePacked(packed, x5c[i]);
+        }
+
+        bytes32 digest = keccak256(packed);
+
+        // ecrecover
+        address recovered = digest.recover(sig);
+        if (!teeIsTrusted(recovered)) {
+            revert Unauthorized_Tee_Address(recovered);
+        }
     }
 
     /**
