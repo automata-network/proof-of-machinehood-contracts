@@ -8,8 +8,13 @@ import {NodePtr} from "../../utils/Asn1Decode.sol";
 import {NativeBase} from "./NativeBase.sol";
 import {X509Helper, X509CertObj, PublicKeyAlgorithm, SignatureAlgorithm} from "../x509/X509Helper.sol";
 
-import {X509ChainVerifier} from "@automata-network/x509-zk-verifier/X509ChainVerifier.sol";
+import {X509ChainVerifier} from "@automata-network/risc0-zk-x509/X509ChainVerifier.sol";
 import {ECDSA} from "solady/utils/ECDSA.sol";
+
+enum ProverType {
+    ZK,
+    TEE
+}
 
 abstract contract NativeX5CBase is NativeBase {
     using BytesUtils for bytes;
@@ -31,6 +36,8 @@ abstract contract NativeX5CBase is NativeBase {
     function removeCACert(bytes32 hash) external virtual {}
 
     function caIsTrusted(bytes32 hash) public view virtual returns (bool) {}
+
+    function setTrustedTee(address tee, bool trusted) external virtual {}
 
     function teeIsTrusted(address tee) public view virtual returns (bool) {}
 

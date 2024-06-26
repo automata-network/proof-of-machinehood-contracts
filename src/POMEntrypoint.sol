@@ -76,7 +76,7 @@ abstract contract POMEntrypoint {
         require(success, reason);
         bytes32 proofHash = keccak256(abi.encodePacked(attStmt, authData, clientData));
         attestationId = _attestWebAuthn(
-            WebAuthNAttestationSchema({walletAddress: walletAddress, platform: uint8(platform), proofHash: proofHash})
+            WebAuthNAttestationSchema({platform: uint8(platform), walletAddress: walletAddress, proofHash: proofHash})
         );
     }
 
@@ -87,7 +87,7 @@ abstract contract POMEntrypoint {
     /**
      * @notice Gets the WebAuthN attestation ID and status from the given device identity
      */
-    function getWebAuthNAttestationStatus(WebAuthNAttestPlatform platform, address walletAddress)
+    function getWebAuthNAttestationStatus(bytes32 walletAddress)
         external
         view
         virtual
@@ -96,7 +96,7 @@ abstract contract POMEntrypoint {
     /**
      * @notice Gets the native attestation ID and status from the given device identity
      */
-    function getNativeAttestationStatus(NativeAttestPlatform platform, bytes calldata deviceIdentity)
+    function getNativeAttestationStatus(bytes calldata deviceIdentity)
         external
         view
         virtual

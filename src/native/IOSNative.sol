@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import {
     NativeX5CBase,
+    ProverType,
     X509Helper,
     X509CertObj,
     PublicKeyAlgorithm,
@@ -59,12 +60,12 @@ abstract contract IOSNative is NativeX5CBase {
     {
         IOSPayload memory payloadObj = abi.decode(payload[0], (IOSPayload));
         IOSAssertionPayload memory assertionObj = abi.decode(payload[1], (IOSAssertionPayload));
-        bytes memory seal = payload[2];
+        // either contains the seal (zk proof) or TEE signature
+        bytes memory proof = payload[2];
+        ProverType prover = abi.decode(payload[3], (ProverType));
 
         bytes memory attestedPubkey;
         {
-            // TODO: verify challenge -> replay protection
-
             // Step 0: Check whether the root can be trusted
             bytes[] memory x5c = payloadObj.x5c;
             bool trusted = caIsTrusted(sha256(x5c[x5c.length - 1]));
@@ -94,7 +95,11 @@ abstract contract IOSNative is NativeX5CBase {
                 revert("credCert expired");
             }
 
-            _checkX509Proof(x5c, seal);
+            if (prover == ProverType.ZK) {
+                _checkX509Proof(x5c, proof);
+            } else if (prover == ProverType.TEE) {
+                _checkTeeProof(x5c, proof);
+            }
 
             attestedPubkey = credCert.subjectPublicKey;
             expiry = credCert.validityNotAfter;

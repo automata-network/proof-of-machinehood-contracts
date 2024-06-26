@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import {
     NativeX5CBase,
+    ProverType,
     X509Helper,
     X509CertObj,
     PublicKeyAlgorithm,
@@ -90,8 +91,10 @@ abstract contract AndroidNative is NativeX5CBase {
         returns (bytes memory attestationData, uint256 expiry)
     {
         bytes[] memory x5c = abi.decode(payload[0], (bytes[]));
-        // the deviceId signature occupies payload[1]
-        bytes memory seal = payload[2];
+        bytes memory signature = payload[1];
+        // either contains the seal (zk proof) or TEE signature
+        bytes memory proof = payload[2];
+        ProverType prover = abi.decode(payload[3], (ProverType));
 
         // Step 0: Check whether the root can be trusted
         bool trusted = caIsTrusted(sha256(x5c[x5c.length - 1]));
@@ -102,7 +105,12 @@ abstract contract AndroidNative is NativeX5CBase {
         bytes memory attestedPubKey;
         {
             // Step 1: Verify certificate chain
-            _checkX509Proof(x5c, seal);
+            if (prover == ProverType.ZK) {
+                _checkX509Proof(x5c, proof);
+            } else if (prover == ProverType.TEE) {
+                _checkTeeProof(x5c, proof);
+            }
+
             (
                 bool attestationFound,
                 X509CertObj memory attestationCert,
@@ -124,7 +132,7 @@ abstract contract AndroidNative is NativeX5CBase {
         }
 
         // Step 3: validate Android_ID
-        bool sigVerified = _verifyAndroidId(deviceIdentity, payload[1], _process(attestedPubKey, 64));
+        bool sigVerified = _verifyAndroidId(deviceIdentity, signature, _process(attestedPubKey, 64));
         if (!sigVerified) {
             revert Invalid_Android_Id();
         }
