@@ -69,7 +69,7 @@ contract AndroidNativeTest is NativeTestBase {
         assertEq(
             keccak256(data),
             keccak256(
-                abi.encodePacked(NativeAttestPlatform.ANDROID, deviceIdentity, keccak256(attPubkey), uint64(4294967295))
+                abi.encodePacked(NativeAttestPlatform.ANDROID, uint64(4294967295), keccak256(attPubkey), deviceIdentity)
             )
         );
     }

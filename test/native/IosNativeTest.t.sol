@@ -74,14 +74,14 @@ contract IosNativeTest is NativeTestBase {
             keccak256(
                 abi.encodePacked(
                     NativeAttestPlatform.IOS,
-                    deviceIdentity,
+                    uint64(1712465909),
                     keccak256(
                         abi.encode(
                             hex"04710F9D7CB59F86798AAF92138320831B778016D02CF0F5B416A76917F85EDD4D7440615935921EAAA33C66C6CF4B745E70176A391610AB14F845D7FF39B112A3",
                             iosPayload.receipt
                         )
                     ),
-                    uint64(1712465909)
+                    deviceIdentity
                 )
             )
         );

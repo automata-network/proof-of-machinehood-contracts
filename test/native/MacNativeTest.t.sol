@@ -51,7 +51,7 @@ contract MacNativeTest is Test {
         assertEq(uint8(status), uint8(AttestationStatus.REGISTERED));
         assertEq(
             keccak256(data),
-            keccak256(abi.encodePacked(NativeAttestPlatform.MACOS, pubkey, keccak256(pubkey), uint64(expiry)))
+            keccak256(abi.encodePacked(NativeAttestPlatform.MACOS, uint64(expiry), keccak256(pubkey), pubkey))
         );
     }
 }

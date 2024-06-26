@@ -65,7 +65,7 @@ contract AutomataPOMEntrypoint is Ownable, POMEntrypoint {
         att = nativeAttData[keccak256(deviceIdentity)];
 
         if (att.length > 0) {
-            uint64 expiry = uint64(bytes8(att.substring(att.length - 8, 8)));
+            uint64 expiry = uint64(bytes8(att.substring(2, 8)));
             if (block.timestamp > expiry) {
                 status = AttestationStatus.EXPIRED;
             } else {
@@ -86,7 +86,7 @@ contract AutomataPOMEntrypoint is Ownable, POMEntrypoint {
     {
         attestationId = keccak256(att.deviceIdentity);
         nativeAttData[attestationId] =
-            abi.encodePacked(uint8(att.platform), att.deviceIdentity, keccak256(att.attData), uint64(expiry));
+            abi.encodePacked(uint8(att.platform), uint64(expiry), keccak256(att.attData), att.deviceIdentity);
     }
 
     function _platformMapToNativeVerifier(NativeAttestPlatform platform) internal view override returns (address) {
