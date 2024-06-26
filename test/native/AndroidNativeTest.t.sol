@@ -17,7 +17,7 @@ contract AndroidNativeTest is NativeTestBase {
         vm.warp(1712275200);
 
         vm.startPrank(admin);
-        
+
         attestation = new AutomataAndroidNativePOM(address(sigVerify), address(x509Verifier));
         attestation.addCACert(rootHash);
         attestation.setSupportedAttestationVersions(3, true);
@@ -32,7 +32,7 @@ contract AndroidNativeTest is NativeTestBase {
     }
 
     function testAndroidNative() public {
-         bytes[] memory attestationCertChain = new bytes[](4);
+        bytes[] memory attestationCertChain = new bytes[](4);
         attestationCertChain[0] =
             hex"308202a73082024ea003020102020101300a06082a8648ce3d0403023039310c300a060355040c0c03544545312930270603550405132032376163323665376539656133356439386435376364343338386362303336343020170d3730303130313030303030305a180f32313036303230373036323831355a301f311d301b06035504030c14416e64726f6964204b657973746f7265204b65793059301306072a8648ce3d020106082a8648ce3d030107034200041672a76949a5e5ca25a4dc207a421fd09750dd092ec6ddfb3b3692cfecac7dede42f1661cb8ee2d057325e9ef04d95769f0dc422dc096bac96656513cf1c65fba382015d30820159300e0603551d0f0101ff04040302078030820145060a2b06010401d67902011104820135308201310201030a01010201290a010104215448495320495320544845204154544553544154494f4e204348414c4c454e474504003053bf853d080206018d466dd6a0bf8545430441303f311930170412636f6d2e6175746f6d6174612e706f6d726e02010131220420fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c3081a8a1083106020102020103a203020103a30402020100a5083106020104020106aa03020101bf837803020102bf853e03020100bf85404c304a0420c5d3c71bc70d58e3e0409ca9d9b34c0dbac1d2f09a5de948a4b8f090f19269650101ff0a01000420d77ebc7bc6d6cd18a2db668508620f27d6fb806fbb033e5983c766bdab219746bf854105020301fbd0bf8542050203031647bf854e0602040134b3bdbf854f0602040134b3bd300a06082a8648ce3d040302034700304402204c23e4367d39f62f27608198145eb8ef8682eca456f1e3f8248de0d6e6fffc5502202d264ab3f155b4b4c03763386e7420ef71c04cbd4a431aa6e5bf4ed3c8b089eb";
         attestationCertChain[1] =
@@ -54,13 +54,23 @@ contract AndroidNativeTest is NativeTestBase {
         // get proof
         // (, bytes memory seal) = _prove(_getElfPath(), input);
         // console.logBytes(seal);
-        bytes memory seal = hex"310fe5982ad1796f0e5fa5e446169b2a2299763e31f03a2df443bd7a1e469ab5d81d216902268fe05b9b475eed39ceca81f127aa08f07cd526fa9a27100cf8328592b5cd0b08517bb88e93e6af9a72f49cc5a97d418955120bc1e86add572a39968248e5131a77577053c80d9cb54b099a4bc25601610337e474f8114c69bba52b2cc45a12cb3a8f1164824fa3990fb0bc267e5f0b166930b07272840c9f309107a4b66c1c5e4a9360c71d6352bdc954e5c83d20ff81913ab6e9716b70fa4e2ff367c9fe0fc97f48fd14ec93c4559d6c9d0458945b662254d9edfefcb0a42a029a28c5a20a75b83c0ac7ff15dd912bad0303f2895e1dcb23e674249bfdf55b68afb3319c";
-        payload[2] = seal;
-        payload[3] = abi.encode(ProverType.ZK);
+        bytes memory seal =
+            hex"310fe5982ad1796f0e5fa5e446169b2a2299763e31f03a2df443bd7a1e469ab5d81d216902268fe05b9b475eed39ceca81f127aa08f07cd526fa9a27100cf8328592b5cd0b08517bb88e93e6af9a72f49cc5a97d418955120bc1e86add572a39968248e5131a77577053c80d9cb54b099a4bc25601610337e474f8114c69bba52b2cc45a12cb3a8f1164824fa3990fb0bc267e5f0b166930b07272840c9f309107a4b66c1c5e4a9360c71d6352bdc954e5c83d20ff81913ab6e9716b70fa4e2ff367c9fe0fc97f48fd14ec93c4559d6c9d0458945b662254d9edfefcb0a42a029a28c5a20a75b83c0ac7ff15dd912bad0303f2895e1dcb23e674249bfdf55b68afb3319c";
+        payload[2] = abi.encode(ProverType.ZK);
+        payload[3] = seal;
 
-        bytes32 attestationId = entrypoint.nativeAttest(NativeAttestPlatform.ANDROID, deviceIdentity, payload);
+        entrypoint.nativeAttest(NativeAttestPlatform.ANDROID, deviceIdentity, payload);
         AttestationStatus status;
-        (attestationId, status) = entrypoint.getNativeAttestationStatus(deviceIdentity);
+        bytes memory data;
+        (status, data) = entrypoint.getNativeAttestationStatus(deviceIdentity);
+        bytes memory attPubkey =
+            hex"041672A76949A5E5CA25A4DC207A421FD09750DD092EC6DDFB3B3692CFECAC7DEDE42F1661CB8EE2D057325E9EF04D95769F0DC422DC096BAC96656513CF1C65FB";
         assertEq(uint8(status), uint8(AttestationStatus.REGISTERED));
+        assertEq(
+            keccak256(data),
+            keccak256(
+                abi.encodePacked(NativeAttestPlatform.ANDROID, deviceIdentity, keccak256(attPubkey), uint64(4294967295))
+            )
+        );
     }
 }

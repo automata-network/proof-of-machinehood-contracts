@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
-import {
-    AndroidNative,
-    BasicAttestationObject,
-    SecurityLevel
-} from "../native/AndroidNative.sol";
+import {AndroidNative, BasicAttestationObject, SecurityLevel} from "../native/AndroidNative.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
 
 contract AutomataAndroidNativePOM is AndroidNative, Ownable {
@@ -37,7 +33,7 @@ contract AutomataAndroidNativePOM is AndroidNative, Ownable {
         return _trustedCAs[hash];
     }
 
-    function setTrustedTee(address tee, bool trusted) external override {
+    function setTrustedTee(address tee, bool trusted) external override onlyOwner {
         _teeTrusted[tee] = trusted;
     }
 

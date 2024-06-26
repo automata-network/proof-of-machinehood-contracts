@@ -47,14 +47,9 @@ abstract contract NativeX5CBase is NativeBase {
     }
 
     function _checkTeeProof(bytes[] memory x5c, bytes memory sig) internal view {
-        // keccak256(x5c) as digest
-        bytes memory packed;
-
-        for (uint256 i = 0; i < x5c.length;) {
-            packed = abi.encodePacked(packed, x5c[i]);
-        }
-
-        bytes32 digest = keccak256(packed);
+        bytes32 chainHash = sha256(abi.encode(x5c));
+        bytes32 rootHash = sha256(x5c[x5c.length - 1]);
+        bytes32 digest = keccak256(abi.encode(chainHash, rootHash, true));
 
         // ecrecover
         address recovered = digest.recover(sig);

@@ -92,9 +92,9 @@ abstract contract AndroidNative is NativeX5CBase {
     {
         bytes[] memory x5c = abi.decode(payload[0], (bytes[]));
         bytes memory signature = payload[1];
+        ProverType prover = abi.decode(payload[2], (ProverType));
         // either contains the seal (zk proof) or TEE signature
-        bytes memory proof = payload[2];
-        ProverType prover = abi.decode(payload[3], (ProverType));
+        bytes memory proof = payload[3];
 
         // Step 0: Check whether the root can be trusted
         bool trusted = caIsTrusted(sha256(x5c[x5c.length - 1]));

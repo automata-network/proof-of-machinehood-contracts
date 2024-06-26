@@ -60,9 +60,9 @@ abstract contract IOSNative is NativeX5CBase {
     {
         IOSPayload memory payloadObj = abi.decode(payload[0], (IOSPayload));
         IOSAssertionPayload memory assertionObj = abi.decode(payload[1], (IOSAssertionPayload));
+        ProverType prover = abi.decode(payload[2], (ProverType));
         // either contains the seal (zk proof) or TEE signature
-        bytes memory proof = payload[2];
-        ProverType prover = abi.decode(payload[3], (ProverType));
+        bytes memory proof = payload[3];
 
         bytes memory attestedPubkey;
         {

@@ -11,9 +11,8 @@ import "../../src/example/AutomataPOMEntrypoint.sol";
 import "../../src/POMEntrypoint.sol";
 
 abstract contract NativeTestBase is Test {
-
     SigVerifyLib internal sigVerify;
-    
+
     AutomataPOMEntrypoint internal entrypoint;
     RiscZeroGroth16Verifier internal risc0Verifier;
     X509ChainVerifier internal x509Verifier;
@@ -60,9 +59,7 @@ abstract contract NativeTestBase is Test {
         imageRunnerInput[i++] = "cargo";
         imageRunnerInput[i++] = "run";
         imageRunnerInput[i++] = "--manifest-path";
-        imageRunnerInput[i++] = string.concat(
-            root, "/lib/risc0-zk-x509", "/lib/risc0-ethereum/ffi/Cargo.toml"
-        );
+        imageRunnerInput[i++] = string.concat(root, "/lib/risc0-zk-x509", "/lib/risc0-ethereum/ffi/Cargo.toml");
         imageRunnerInput[i++] = "--bin";
         imageRunnerInput[i++] = "risc0-forge-ffi";
         imageRunnerInput[i++] = "-q";

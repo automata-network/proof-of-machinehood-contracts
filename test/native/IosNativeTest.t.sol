@@ -55,17 +55,35 @@ contract IosNativeTest is NativeTestBase {
         // (, bytes memory seal) = _prove(_getElfPath(), abi.encode(attestationCertChain));
         // console.log("Seal: ");
         // console.logBytes(seal);
-        bytes memory seal = hex"310fe5981b713eda3ba6e2fb4552ac06cc3d8f507f0aff3a48fd2f7329747bbe048fd8a2068561dac0801ad60320d7927e3071281a3bf017290a7c309558c707e571091025b0b3d204595497ac646e08ea295d1998d54527eb1242c801498498612a590f0e59103952980ca11e4c1c3342d8282cd0ad532fdb71629b514335770a19469814cb69cd9bb392031fff9337f0a19db0fc9b216f2b7374fb9751577c57dd2be2121241ef9a4cfd9498887b14a663f635c8a1c4a47d1d8034f8ea40129226557d1cdbdeda4bd2bc36cc3f8c5dcc97a38ac04d53046fa89938078111624b65502a2d871a4779bbd32ff08ae41e8f51cb5b9ff1a812f5b047cfe9cf1a15e8091f22";
+        bytes memory seal =
+            hex"310fe5981b713eda3ba6e2fb4552ac06cc3d8f507f0aff3a48fd2f7329747bbe048fd8a2068561dac0801ad60320d7927e3071281a3bf017290a7c309558c707e571091025b0b3d204595497ac646e08ea295d1998d54527eb1242c801498498612a590f0e59103952980ca11e4c1c3342d8282cd0ad532fdb71629b514335770a19469814cb69cd9bb392031fff9337f0a19db0fc9b216f2b7374fb9751577c57dd2be2121241ef9a4cfd9498887b14a663f635c8a1c4a47d1d8034f8ea40129226557d1cdbdeda4bd2bc36cc3f8c5dcc97a38ac04d53046fa89938078111624b65502a2d871a4779bbd32ff08ae41e8f51cb5b9ff1a812f5b047cfe9cf1a15e8091f22";
 
         bytes[] memory payload = new bytes[](4);
         payload[0] = abi.encode(iosPayload);
         payload[1] = abi.encode(assertionPayload);
-        payload[2] = seal;
-        payload[3] = abi.encode(ProverType.ZK);
+        payload[2] = abi.encode(ProverType.ZK);
+        payload[3] = seal;
 
-        bytes32 attestationId = entrypoint.nativeAttest(NativeAttestPlatform.IOS, deviceIdentity, payload);
+        entrypoint.nativeAttest(NativeAttestPlatform.IOS, deviceIdentity, payload);
         AttestationStatus status;
-        (attestationId, status) = entrypoint.getNativeAttestationStatus(deviceIdentity);
+        bytes memory data;
+        (status, data) = entrypoint.getNativeAttestationStatus(deviceIdentity);
         assertEq(uint8(status), uint8(AttestationStatus.REGISTERED));
+        assertEq(
+            keccak256(data),
+            keccak256(
+                abi.encodePacked(
+                    NativeAttestPlatform.IOS,
+                    deviceIdentity,
+                    keccak256(
+                        abi.encode(
+                            hex"04710F9D7CB59F86798AAF92138320831B778016D02CF0F5B416A76917F85EDD4D7440615935921EAAA33C66C6CF4B745E70176A391610AB14F845D7FF39B112A3",
+                            iosPayload.receipt
+                        )
+                    ),
+                    uint64(1712465909)
+                )
+            )
+        );
     }
 }

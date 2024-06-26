@@ -37,12 +37,21 @@ contract MacNativeTest is Test {
         bytes memory pubkey =
             hex"04f9169b1c649e789b970cbbcba5125e6cd54811b35a21b8c96c0f59610033d051d2ee6d471bfe7b1dfd70cd88d28cf9128cd31995ee210430fec6576dc20077ce";
 
+        (bytes memory encodedMessageBytes,) = abi.decode(att, (bytes, bytes));
+        uint256 expiry;
+        (, expiry) = abi.decode(encodedMessageBytes, (bytes, uint256));
+
         bytes[] memory payload = new bytes[](1);
         payload[0] = att;
 
-        bytes32 attestationId = entrypoint.nativeAttest(NativeAttestPlatform.MACOS, pubkey, payload);
+        entrypoint.nativeAttest(NativeAttestPlatform.MACOS, pubkey, payload);
         AttestationStatus status;
-        (attestationId, status) = entrypoint.getNativeAttestationStatus(pubkey);
+        bytes memory data;
+        (status, data) = entrypoint.getNativeAttestationStatus(pubkey);
         assertEq(uint8(status), uint8(AttestationStatus.REGISTERED));
+        assertEq(
+            keccak256(data),
+            keccak256(abi.encodePacked(NativeAttestPlatform.MACOS, pubkey, keccak256(pubkey), uint64(expiry)))
+        );
     }
 }

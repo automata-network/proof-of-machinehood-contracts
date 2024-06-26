@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
-import {
-    IOSNative,
-    IOSPayload,
-    IOSAssertionPayload
-} from "../native/IOSNative.sol";
+import {IOSNative, IOSPayload, IOSAssertionPayload} from "../native/IOSNative.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
 
 contract AutomataIosNativePOM is IOSNative, Ownable {
@@ -37,7 +33,7 @@ contract AutomataIosNativePOM is IOSNative, Ownable {
         return _trustedCAs[hash];
     }
 
-    function setTrustedTee(address tee, bool trusted) external override {
+    function setTrustedTee(address tee, bool trusted) external override onlyOwner {
         _teeTrusted[tee] = trusted;
     }
 
