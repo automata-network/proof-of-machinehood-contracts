@@ -15,7 +15,7 @@ contract EntrypointScript is Script {
 
     function configEntrypointForNative(uint8 platform, address verifier) public {
         address entrypointAddr = vm.envAddress("POM_ENTRYPOINT_ADDRESS");
-        
+
         entrypoint = AutomataPOMEntrypoint(entrypointAddr);
 
         vm.broadcast(privateKey);
