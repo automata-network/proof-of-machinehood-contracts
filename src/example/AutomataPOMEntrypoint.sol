@@ -24,6 +24,9 @@ contract AutomataPOMEntrypoint is Ownable, POMEntrypoint {
     /// @notice the attestation id is the keccak256 hash of the device identity
     mapping(bytes32 attestationId => bytes attData) nativeAttData;
 
+    event WebAuthNAttested(WebAuthNAttestPlatform indexed platform, address indexed walletAddress);
+    event NativeAttested(NativeAttestPlatform indexed platform, bytes deviceIdentity);
+
     constructor() {
         _initializeOwner(msg.sender);
     }
@@ -77,6 +80,10 @@ contract AutomataPOMEntrypoint is Ownable, POMEntrypoint {
     function _attestWebAuthn(WebAuthNAttestationSchema memory att) internal override returns (bytes32 attestationId) {
         attestationId = att.walletAddress;
         webAuthNAttData[attestationId] = abi.encodePacked(uint8(att.platform), att.walletAddress, att.proofHash);
+        emit WebAuthNAttested(
+            WebAuthNAttestPlatform(att.platform),
+            address(uint160(uint256(att.walletAddress)))
+        );
     }
 
     function _attestNative(NativeAttestationSchema memory att, uint256 expiry)
@@ -87,6 +94,7 @@ contract AutomataPOMEntrypoint is Ownable, POMEntrypoint {
         attestationId = keccak256(att.deviceIdentity);
         nativeAttData[attestationId] =
             abi.encodePacked(uint8(att.platform), uint64(expiry), keccak256(att.attData), att.deviceIdentity);
+        emit NativeAttested(NativeAttestPlatform(att.platform), att.deviceIdentity);
     }
 
     function _platformMapToNativeVerifier(NativeAttestPlatform platform) internal view override returns (address) {
