@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import {IOSNative, IOSPayload, IOSAssertionPayload} from "../native/IOSNative.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
+import {X509ChainVerifier} from "@automata-network/risc0-zk-x509/X509ChainVerifier.sol";
 
 contract AutomataIosNativePOM is IOSNative, Ownable {
     /// === aaguid constants ===
@@ -35,6 +36,10 @@ contract AutomataIosNativePOM is IOSNative, Ownable {
 
     function setTrustedTee(address tee, bool trusted) external override onlyOwner {
         _teeTrusted[tee] = trusted;
+    }
+
+    function updateX509Verifier(address _x509Verifier) public override onlyOwner {
+        x509Verifier = X509ChainVerifier(_x509Verifier);
     }
 
     function teeIsTrusted(address tee) public view override returns (bool) {

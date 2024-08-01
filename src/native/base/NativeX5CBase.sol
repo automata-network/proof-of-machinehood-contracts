@@ -22,7 +22,7 @@ abstract contract NativeX5CBase is NativeBase {
     using ECDSA for bytes32;
 
     ISigVerifyLib public immutable sigVerifyLib;
-    X509ChainVerifier public immutable x509Verifier;
+    X509ChainVerifier public x509Verifier;
 
     constructor(address _sigVerifyAddr, address _x509Verifier) {
         sigVerifyLib = ISigVerifyLib(_sigVerifyAddr);
@@ -40,6 +40,8 @@ abstract contract NativeX5CBase is NativeBase {
     function setTrustedTee(address tee, bool trusted) external virtual {}
 
     function teeIsTrusted(address tee) public view virtual returns (bool) {}
+
+    function updateX509Verifier(address _x509Verifier) public virtual {} 
 
     function _checkX509Proof(bytes[] memory x5c, bytes memory seal) internal view {
         // risc0 reverts if failed
