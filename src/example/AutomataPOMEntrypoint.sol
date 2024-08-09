@@ -68,8 +68,8 @@ contract AutomataPOMEntrypoint is Ownable, POMEntrypoint {
         att = nativeAttData[keccak256(deviceIdentity)];
 
         if (att.length > 0) {
-            uint64 expiry = uint64(bytes8(att.substring(2, 8)));
-            if (block.timestamp > expiry) {
+            NativeAttestationSchema memory nativeAttestation = abi.decode(att, (NativeAttestationSchema));
+            if (block.timestamp > nativeAttestation.expiry) {
                 status = AttestationStatus.EXPIRED;
             } else {
                 status = AttestationStatus.REGISTERED;
@@ -79,22 +79,14 @@ contract AutomataPOMEntrypoint is Ownable, POMEntrypoint {
 
     function _attestWebAuthn(WebAuthNAttestationSchema memory att) internal override returns (bytes32 attestationId) {
         attestationId = att.walletAddress;
-        webAuthNAttData[attestationId] = abi.encodePacked(uint8(att.platform), att.walletAddress, att.proofHash);
-        emit WebAuthNAttested(
-            WebAuthNAttestPlatform(att.platform),
-            address(uint160(uint256(att.walletAddress)))
-        );
+        webAuthNAttData[attestationId] = abi.encode(att);
+        emit WebAuthNAttested(att.platform, address(uint160(uint256(att.walletAddress))));
     }
 
-    function _attestNative(NativeAttestationSchema memory att, uint256 expiry)
-        internal
-        override
-        returns (bytes32 attestationId)
-    {
+    function _attestNative(NativeAttestationSchema memory att) internal override returns (bytes32 attestationId) {
         attestationId = keccak256(att.deviceIdentity);
-        nativeAttData[attestationId] =
-            abi.encodePacked(uint8(att.platform), uint64(expiry), keccak256(att.attData), att.deviceIdentity);
-        emit NativeAttested(NativeAttestPlatform(att.platform), att.deviceIdentity);
+        nativeAttData[attestationId] = abi.encode(att);
+        emit NativeAttested(att.platform, att.deviceIdentity);
     }
 
     function _platformMapToNativeVerifier(NativeAttestPlatform platform) internal view override returns (address) {

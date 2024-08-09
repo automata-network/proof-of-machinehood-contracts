@@ -29,13 +29,14 @@ enum AttestationStatus {
 }
 
 struct WebAuthNAttestationSchema {
+    WebAuthNAttestPlatform platform;
     bytes32 walletAddress;
-    uint8 platform;
     bytes32 proofHash;
 }
 
 struct NativeAttestationSchema {
-    uint8 platform;
+    NativeAttestPlatform platform;
+    uint64 expiry;
     bytes deviceIdentity;
     bytes attData;
 }
@@ -54,8 +55,12 @@ abstract contract POMEntrypoint {
         (bytes memory attestedData, uint256 expiry) =
             NativeBase(verifier).verifyAndGetAttestationData(deviceIdentity, payload);
         attestationId = _attestNative(
-            NativeAttestationSchema({platform: uint8(platform), deviceIdentity: deviceIdentity, attData: attestedData}),
-            expiry
+            NativeAttestationSchema({
+                platform: platform,
+                expiry: uint64(expiry),
+                deviceIdentity: deviceIdentity,
+                attData: attestedData
+            })
         );
     }
 
@@ -76,7 +81,7 @@ abstract contract POMEntrypoint {
         require(success, reason);
         bytes32 proofHash = keccak256(abi.encodePacked(attStmt, authData, clientData));
         attestationId = _attestWebAuthn(
-            WebAuthNAttestationSchema({platform: uint8(platform), walletAddress: walletAddress, proofHash: proofHash})
+            WebAuthNAttestationSchema({platform: platform, walletAddress: walletAddress, proofHash: proofHash})
         );
     }
 
@@ -116,8 +121,5 @@ abstract contract POMEntrypoint {
 
     function _attestWebAuthn(WebAuthNAttestationSchema memory att) internal virtual returns (bytes32 attestationId);
 
-    function _attestNative(NativeAttestationSchema memory att, uint256 expiry)
-        internal
-        virtual
-        returns (bytes32 attestationId);
+    function _attestNative(NativeAttestationSchema memory att) internal virtual returns (bytes32 attestationId);
 }
