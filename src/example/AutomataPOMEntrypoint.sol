@@ -13,12 +13,20 @@ import {
 import {BytesUtils} from "../utils/BytesUtils.sol";
 
 import {Ownable} from "solady/auth/Ownable.sol";
+import {LibBitmap} from "solady/utils/LibBitmap.sol";
+
+using LibBitmap for LibBitmap.Bitmap;
 
 contract AutomataPOMEntrypoint is Ownable, POMEntrypoint {
     using BytesUtils for bytes;
+    using LibBitmap for LibBitmap.Bitmap;
 
     mapping(WebAuthNAttestPlatform => address) _webAuthNVerifiers;
     mapping(NativeAttestPlatform => address) _nativeAttestVerifiers;
+
+    /// @dev bitmap is used to keep track of attestation data collision
+    /// this prevents attackers from re-submitting attested data
+    LibBitmap.Bitmap internal proofBitmap;
 
     mapping(bytes32 paddedWalletAddress => bytes attData) webAuthNAttData;
     /// @notice the attestation id is the keccak256 hash of the device identity
@@ -26,6 +34,9 @@ contract AutomataPOMEntrypoint is Ownable, POMEntrypoint {
 
     event WebAuthNAttested(WebAuthNAttestPlatform indexed platform, address indexed walletAddress);
     event NativeAttested(NativeAttestPlatform indexed platform, bytes deviceIdentity);
+
+    // a7e31dec
+    error Duplicate_Attestation_Found();
 
     constructor() {
         _initializeOwner(msg.sender);
@@ -79,13 +90,17 @@ contract AutomataPOMEntrypoint is Ownable, POMEntrypoint {
 
     function _attestWebAuthn(WebAuthNAttestationSchema memory att) internal override returns (bytes32 attestationId) {
         attestationId = att.walletAddress;
-        webAuthNAttData[attestationId] = abi.encode(att);
+        bytes memory data = abi.encode(att);
+        _checkDuplicationPayload(att.proofHash);
+        webAuthNAttData[attestationId] = data;
         emit WebAuthNAttested(att.platform, address(uint160(uint256(att.walletAddress))));
     }
 
     function _attestNative(NativeAttestationSchema memory att) internal override returns (bytes32 attestationId) {
         attestationId = keccak256(att.deviceIdentity);
-        nativeAttData[attestationId] = abi.encode(att);
+        bytes memory data = abi.encode(att);
+        _checkDuplicationPayload(keccak256(data));
+        nativeAttData[attestationId] = data;
         emit NativeAttested(att.platform, att.deviceIdentity);
     }
 
@@ -95,5 +110,14 @@ contract AutomataPOMEntrypoint is Ownable, POMEntrypoint {
 
     function _platformMapToWebAuthNverifier(WebAuthNAttestPlatform platform) internal view override returns (address) {
         return _webAuthNVerifiers[platform];
+    }
+
+    /// @dev replay protection
+    function _checkDuplicationPayload(bytes32 hash) private {
+        uint256 key = uint256(hash);
+        if (proofBitmap.get(key)) {
+            revert Duplicate_Attestation_Found();
+        }
+        proofBitmap.set(key);
     }
 }
