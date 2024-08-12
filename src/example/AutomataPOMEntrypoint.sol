@@ -15,9 +15,11 @@ import {BytesUtils} from "../utils/BytesUtils.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
 import {LibBitmap} from "solady/utils/LibBitmap.sol";
 
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+
 using LibBitmap for LibBitmap.Bitmap;
 
-contract AutomataPOMEntrypoint is Ownable, POMEntrypoint {
+contract AutomataPOMEntrypoint is Initializable, Ownable, POMEntrypoint {
     using BytesUtils for bytes;
     using LibBitmap for LibBitmap.Bitmap;
 
@@ -39,7 +41,11 @@ contract AutomataPOMEntrypoint is Ownable, POMEntrypoint {
     error Duplicate_Attestation_Found();
 
     constructor() {
-        _initializeOwner(msg.sender);
+        _disableInitializers();
+    }
+
+    function initialize(address _owner) external initializer {
+        _initializeOwner(_owner);
     }
 
     function setWebAuthNVerifier(WebAuthNAttestPlatform platform, address verifier) external onlyOwner {
