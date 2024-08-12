@@ -10,3 +10,6 @@
 [submodule "lib/risc0-zk-x509"]
 	path = lib/risc0-zk-x509
 	url = https://github.com/automata-network/risc0-zk-x509
+[submodule "lib/openzeppelin-contracts"]
+	path = lib/openzeppelin-contracts
+	url = https://github.com/openzeppelin/openzeppelin-contracts
