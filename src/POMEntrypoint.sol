@@ -48,7 +48,7 @@ abstract contract POMEntrypoint {
         external
         returns (bytes32 attestationId)
     {
-        address verifier = _platformMapToNativeVerifier(platform);
+        address verifier = platformMapToNativeVerifier(platform);
         if (verifier == address(0)) {
             revert Missing_Verifier_Or_Platform_Unsupported();
         }
@@ -71,7 +71,7 @@ abstract contract POMEntrypoint {
         bytes calldata authData,
         bytes calldata clientData
     ) external returns (bytes32 attestationId) {
-        address verifier = _platformMapToWebAuthNverifier(platform);
+        address verifier = platformMapToWebAuthNverifier(platform);
         if (verifier == address(0)) {
             revert Missing_Verifier_Or_Platform_Unsupported();
         }
@@ -107,14 +107,14 @@ abstract contract POMEntrypoint {
         virtual
         returns (AttestationStatus status, bytes memory att);
 
-    function _platformMapToNativeVerifier(NativeAttestPlatform platform)
-        internal
+    function platformMapToNativeVerifier(NativeAttestPlatform platform)
+        public
         view
         virtual
         returns (address verifier);
 
-    function _platformMapToWebAuthNverifier(WebAuthNAttestPlatform platform)
-        internal
+    function platformMapToWebAuthNverifier(WebAuthNAttestPlatform platform)
+        public
         view
         virtual
         returns (address verifier);

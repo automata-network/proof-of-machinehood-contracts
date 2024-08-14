@@ -110,11 +110,11 @@ contract AutomataPOMEntrypoint is Initializable, Ownable, POMEntrypoint {
         emit NativeAttested(att.platform, att.deviceIdentity);
     }
 
-    function _platformMapToNativeVerifier(NativeAttestPlatform platform) internal view override returns (address) {
+    function platformMapToNativeVerifier(NativeAttestPlatform platform) public view override returns (address) {
         return _nativeAttestVerifiers[platform];
     }
 
-    function _platformMapToWebAuthNverifier(WebAuthNAttestPlatform platform) internal view override returns (address) {
+    function platformMapToWebAuthNverifier(WebAuthNAttestPlatform platform) public view override returns (address) {
         return _webAuthNVerifiers[platform];
     }
 
