@@ -17,7 +17,7 @@ contract DeployNativeScript is Script {
 
     function deployMacNative() public {
         vm.broadcast(privateKey);
-        mac = new AutomataMacNativePOM();
+        mac = new AutomataMacNativePOM(sigVerifyLib);
     }
 
     function deployAndroidNative() public {

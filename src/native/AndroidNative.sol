@@ -69,6 +69,15 @@ abstract contract AndroidNative is NativeX5CBase {
 
     constructor(address _sigVerifyLib, address _x509Verifier) NativeX5CBase(_sigVerifyLib, _x509Verifier) {}
 
+    function verifyAssertion(bytes calldata attestedPubKey, bytes calldata clientData, bytes calldata assertionPayload)
+        external
+        view
+        override
+        returns (bool)
+    {
+        return _verifySignedChallenge(attestedPubKey, clientData, assertionPayload);
+    }
+
     /// @dev implement getter to determine the revocation status of the given serial number of a certificate
     /// @dev you must implement a method (access-controlled) to store CRLs on chain
     /// Official CRL list can be fetched via https://android.googleapis.com/attestation/status
@@ -132,7 +141,7 @@ abstract contract AndroidNative is NativeX5CBase {
         }
 
         // Step 3: validate Android_ID
-        bool sigVerified = _verifyAndroidId(deviceIdentity, signature, _process(attestedPubKey, 64));
+        bool sigVerified = _verifySignedChallenge(_process(attestedPubKey, 64), deviceIdentity, signature);
         if (!sigVerified) {
             revert Invalid_Android_Id();
         }
@@ -140,12 +149,12 @@ abstract contract AndroidNative is NativeX5CBase {
         attestationData = attestedPubKey;
     }
 
-    function _verifyAndroidId(bytes calldata deviceIdentity, bytes memory signature, bytes memory attestedPubKey)
+    function _verifySignedChallenge(bytes memory attestedPubKey, bytes memory message, bytes memory signature)
         private
         view
         returns (bool verified)
     {
-        verified = sigVerifyLib.verifyES256Signature(deviceIdentity, signature, attestedPubKey);
+        verified = sigVerifyLib.verifyES256Signature(message, signature, attestedPubKey);
     }
 
     /// @dev we cannot assume that the key attestation certificate extension is in the leaf certificate

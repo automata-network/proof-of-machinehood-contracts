@@ -43,6 +43,16 @@ abstract contract IOSNative is NativeX5CBase {
 
     constructor(address _sigVerifyLib, address _x509Verifier) NativeX5CBase(_sigVerifyLib, _x509Verifier) {}
 
+    function verifyAssertion(bytes calldata attestedPubKey, bytes calldata clientData, bytes calldata assertionPayload)
+        external
+        view
+        override
+        returns (bool)
+    {
+        IOSAssertionPayload memory assertion = abi.decode(assertionPayload, (IOSAssertionPayload));
+        return _verifyAssertion(attestedPubKey, clientData, assertion);
+    }
+
     /// @dev configure valid hash of iOS App ID that generates the keypair
     function appIdHash() public view virtual returns (bytes32);
 
@@ -114,8 +124,7 @@ abstract contract IOSNative is NativeX5CBase {
         }
 
         // Step 3: Verify Device UUID
-        bool uuidVerified =
-            _verifyUUID(deviceIdentity, _process(attestedPubkey, 64), assertionObj.signature, assertionObj.authData);
+        bool uuidVerified = _verifyAssertion(_process(attestedPubkey, 64), deviceIdentity, assertionObj);
         if (!uuidVerified) {
             revert Invalid_UUID();
         }
@@ -189,14 +198,13 @@ abstract contract IOSNative is NativeX5CBase {
         }
     }
 
-    function _verifyUUID(
-        bytes calldata deviceIdentity,
-        bytes memory attestedPubKey,
-        bytes memory signature,
-        bytes memory authData
-    ) private view returns (bool verified) {
+    function _verifyAssertion(bytes memory pubKey, bytes memory clientData, IOSAssertionPayload memory assertion)
+        private
+        view
+        returns (bool verified)
+    {
         // auth data verification
-        (bytes32 rpid,, uint32 counter,) = _parseAuthData(authData);
+        (bytes32 rpid,, uint32 counter,) = _parseAuthData(assertion.authData);
         if (rpid != appIdHash()) {
             return false;
         }
@@ -205,9 +213,8 @@ abstract contract IOSNative is NativeX5CBase {
             return false;
         }
 
-        // sig verification
-        bytes32 deviceHash = sha256(deviceIdentity);
-        bytes32 message = sha256(abi.encodePacked(authData, deviceHash));
-        verified = sigVerifyLib.verifyES256Signature(abi.encodePacked(message), signature, attestedPubKey);
+        bytes32 clientDataHash = sha256(clientData);
+        bytes32 nonce = sha256(abi.encodePacked(assertion.authData, clientDataHash));
+        verified = sigVerifyLib.verifyES256Signature(abi.encodePacked(nonce), assertion.signature, pubKey);
     }
 }

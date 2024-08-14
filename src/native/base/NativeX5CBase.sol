@@ -41,7 +41,7 @@ abstract contract NativeX5CBase is NativeBase {
 
     function teeIsTrusted(address tee) public view virtual returns (bool) {}
 
-    function updateX509Verifier(address _x509Verifier) public virtual {} 
+    function updateX509Verifier(address _x509Verifier) public virtual {}
 
     function _checkX509Proof(bytes[] memory x5c, bytes memory seal) internal view {
         // risc0 reverts if failed

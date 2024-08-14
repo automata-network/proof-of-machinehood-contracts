@@ -7,7 +7,7 @@ import {Ownable} from "solady/auth/Ownable.sol";
 contract AutomataMacNativePOM is MacNative, Ownable {
     mapping(address => bool) _authorizedKeys;
 
-    constructor() {
+    constructor(address _sigVerifierAddr) MacNative(_sigVerifierAddr) {
         _initializeOwner(msg.sender);
     }
 

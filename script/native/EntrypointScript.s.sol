@@ -16,11 +16,8 @@ contract EntrypointScript is Script {
         vm.broadcast(privateKey);
         entrypoint = new AutomataPOMEntrypoint();
 
-        bytes memory initData = abi.encodeWithSelector(
-            AutomataPOMEntrypoint.initialize.selector,
-            vm.addr(privateKey)
-        );
-        
+        bytes memory initData = abi.encodeWithSelector(AutomataPOMEntrypoint.initialize.selector, vm.addr(privateKey));
+
         address adminAddr = vm.addr(adminPrivateKey);
         vm.broadcast(adminPrivateKey);
         proxy = new TransparentUpgradeableProxy(address(entrypoint), adminAddr, initData);
@@ -32,11 +29,8 @@ contract EntrypointScript is Script {
     }
 
     function deployProxy(address impl) public {
-        bytes memory initData = abi.encodeWithSelector(
-            AutomataPOMEntrypoint.initialize.selector,
-            vm.addr(privateKey)
-        );
-        
+        bytes memory initData = abi.encodeWithSelector(AutomataPOMEntrypoint.initialize.selector, vm.addr(privateKey));
+
         address adminAddr = vm.addr(adminPrivateKey);
         vm.broadcast(adminPrivateKey);
         proxy = new TransparentUpgradeableProxy(impl, adminAddr, initData);
@@ -58,10 +52,6 @@ contract EntrypointScript is Script {
         ProxyAdmin proxyAdmin = ProxyAdmin(proxyAdminAddr);
 
         vm.broadcast(adminPrivateKey);
-        proxyAdmin.upgradeAndCall(
-            ITransparentUpgradeableProxy(entrypointAddr),
-            impl,
-            data
-        );
+        proxyAdmin.upgradeAndCall(ITransparentUpgradeableProxy(entrypointAddr), impl, data);
     }
 }
