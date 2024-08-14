@@ -14,6 +14,8 @@ abstract contract NativeBase {
      * for devices with prior attestations
      * @param attestedPubKey - NOTE: It is the caller's responsibility to check
      * the attestation status of the given public key.
+     * @dev attestedPubKey must be UNPREFIXED and UNCOMPRESSED, e.g. 64 bytes,
+     * consisting of concatenated X and Y coordinates
      * @param clientData  - the data or challenge
      * @param assertionPayload - payload data essential for the verification, such as a signature
      */

@@ -23,17 +23,18 @@ contract EntrypointScript is Script {
         proxy = new TransparentUpgradeableProxy(address(entrypoint), adminAddr, initData);
     }
 
-    function deployEntrypointImplOnly() public {
-        vm.broadcast(privateKey);
-        entrypoint = new AutomataPOMEntrypoint();
-    }
+    function upgradeEntrypoint(bytes memory data) public {
+        address entrypointAddr = vm.envAddress("POM_ENTRYPOINT_ADDRESS");
+        address proxyAdminAddr = vm.envAddress("PROXY_ADMIN_ADDR");
 
-    function deployProxy(address impl) public {
-        bytes memory initData = abi.encodeWithSelector(AutomataPOMEntrypoint.initialize.selector, vm.addr(privateKey));
+        ProxyAdmin proxyAdmin = ProxyAdmin(proxyAdminAddr);
 
-        address adminAddr = vm.addr(adminPrivateKey);
-        vm.broadcast(adminPrivateKey);
-        proxy = new TransparentUpgradeableProxy(impl, adminAddr, initData);
+        vm.startBroadcast(adminPrivateKey);
+
+        AutomataPOMEntrypoint impl = new AutomataPOMEntrypoint();
+        proxyAdmin.upgradeAndCall(ITransparentUpgradeableProxy(entrypointAddr), address(impl), data);
+    
+        vm.stopBroadcast();
     }
 
     function configEntrypointForNative(uint8 platform, address verifier) public {
@@ -43,15 +44,5 @@ contract EntrypointScript is Script {
 
         vm.broadcast(privateKey);
         entrypoint.setNativeAttVerifier(NativeAttestPlatform(platform), verifier);
-    }
-
-    function upgradePom(address impl, bytes memory data) public {
-        address entrypointAddr = vm.envAddress("POM_ENTRYPOINT_ADDRESS");
-        address proxyAdminAddr = vm.envAddress("PROXY_ADMIN_ADDR");
-
-        ProxyAdmin proxyAdmin = ProxyAdmin(proxyAdminAddr);
-
-        vm.broadcast(adminPrivateKey);
-        proxyAdmin.upgradeAndCall(ITransparentUpgradeableProxy(entrypointAddr), impl, data);
     }
 }
