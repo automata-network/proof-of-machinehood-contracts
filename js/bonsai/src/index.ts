@@ -4,7 +4,7 @@ import Server, {SessionType} from './server';
 import { BytesLike } from 'ethers';
 import { convertArrToHex } from './utils';
 
-export const X509_VERIFIER_IMAGE_ID = 'cc5501e5a9e523737c67ad48e7ac8a2027a9b612f365a22893f3dfa34c0e285d';
+export const X509_VERIFIER_IMAGE_ID = 'a20a7e4d0a232f1a7858439acc777f0601e8f5be7bdeb2cec144c14a779a4424';
 
 export type Output = {
     journal: BytesLike,

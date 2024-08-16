@@ -32,7 +32,7 @@ export default class Server {
     constructor(options: ConstructorOptions) {
         this.bonsaiApiKey = options.bonsaiApiKey;
         this.bonsaiUrl = options.bonsaiUrl ? options.bonsaiUrl : "https://api.bonsai.xyz";
-        this.risc0Version = options.risc0Version ? options.risc0Version : "0.21.0";
+        this.risc0Version = options.risc0Version ? options.risc0Version : "1.0.1";
     }
 
     async checkStatus(session: SessionType, uuid: string): Promise<Response> {
