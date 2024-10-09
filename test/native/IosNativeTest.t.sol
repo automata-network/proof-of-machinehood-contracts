@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "./NativeTestBase.sol";
 import {ProverType} from "../../src/native/base/NativeX5CBase.sol";
-import "../../src/example/AutomataIosNativePOM.sol";
+import {AutomataIosNativePOM, IOSPayload, IOSAssertionPayload} from "../../src/example/AutomataIosNativePOM.sol";
 
 contract IosNativeTest is NativeTestBase {
     AutomataIosNativePOM attestation;

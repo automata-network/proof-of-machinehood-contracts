@@ -1,28 +1,22 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "forge-std/Test.sol";
-import "../../src/example/AutomataMacNativePOM.sol";
-import "../../src/example/AutomataPOMEntrypoint.sol";
+import "./NativeTestBase.sol";
 import {SigVerifyLib} from "../../src/utils/SigVerifyLib.sol";
+import {AutomataMacNativePOM} from "../../src/example/AutomataMacNativePOM.sol";
 
-contract MacNativeTest is Test {
-    AutomataPOMEntrypoint entrypoint;
+contract MacNativeTest is NativeTestBase {
     AutomataMacNativePOM attestation;
-    SigVerifyLib sigVerify;
 
     address constant tee = 0x9f4649C074814246b83Ea9a1e2e9aF923E8F92AE;
-    address constant admin = address(1);
 
-    function setUp() public {
+    function setUp() public override {
+        super.setUp();
+
         // Apr 5th, 2024 9:40am UTC
         vm.warp(1712275200);
 
         vm.startPrank(admin);
-
-        sigVerify = new SigVerifyLib();
-
-        entrypoint = new AutomataPOMEntrypoint();
         attestation = new AutomataMacNativePOM(address(sigVerify));
 
         entrypoint.setNativeAttVerifier(NativeAttestPlatform.MACOS, address(attestation));

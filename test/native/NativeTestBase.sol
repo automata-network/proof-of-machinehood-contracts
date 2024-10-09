@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+
 import "forge-std/Test.sol";
 import {LibString} from "solady/utils/LibString.sol";
 import {X509ChainVerifier} from "@automata-network/risc0-zk-x509/X509ChainVerifier.sol";
 import {RiscZeroGroth16Verifier} from "risc0/groth16/RiscZeroGroth16Verifier.sol";
 
 import {SigVerifyLib} from "../../src/utils/SigVerifyLib.sol";
-import "../../src/example/AutomataPOMEntrypoint.sol";
+import {AutomataPOMEntrypoint} from "../../src/example/AutomataPOMEntrypoint.sol";
 import "../../src/POMEntrypoint.sol";
 
 abstract contract NativeTestBase is Test {
@@ -25,7 +28,11 @@ abstract contract NativeTestBase is Test {
         _setupP256();
         sigVerify = new SigVerifyLib();
         _setupRiscZero();
-        entrypoint = new AutomataPOMEntrypoint();
+        AutomataPOMEntrypoint impl = new AutomataPOMEntrypoint();
+
+        bytes memory initData = abi.encodeWithSelector(AutomataPOMEntrypoint.initialize.selector, admin);
+        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(impl), admin, initData);
+        entrypoint = AutomataPOMEntrypoint(address(proxy));
 
         vm.stopPrank();
     }

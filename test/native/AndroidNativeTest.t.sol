@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "./NativeTestBase.sol";
 import {ProverType} from "../../src/native/base/NativeX5CBase.sol";
-import "../../src/example/AutomataAndroidNativePOM.sol";
+import {AutomataAndroidNativePOM} from "../../src/example/AutomataAndroidNativePOM.sol";
 
 contract AndroidNativeTest is NativeTestBase {
     AutomataAndroidNativePOM attestation;
