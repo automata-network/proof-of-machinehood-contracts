@@ -231,6 +231,7 @@ abstract contract AndroidNative is NativeX5CBase {
                     internalPtr = der.nextSiblingOf(internalPtr);
                     retDer = der.bytesAt(internalPtr);
                     retPtr = retDer.root();
+                    break;
                 }
             }
             if (ptr.ixl() < parentPtr.ixl()) {
