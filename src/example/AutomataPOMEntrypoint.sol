@@ -34,6 +34,10 @@ contract AutomataPOMEntrypoint is Initializable, Ownable, POMEntrypoint {
     /// @notice the attestation id is the keccak256 hash of the device identity
     mapping(bytes32 attestationId => bytes attData) nativeAttData;
 
+    mapping(bytes32 deviceIdHash => uint256 nullifierHash) world_deviceBinding;
+    mapping(uint256 nullifierHash => bytes32 deviceIdHash) world_nullifierHashes;
+    // mapping world hash => bytes  additional info?
+
     event WebAuthNAttested(WebAuthNAttestPlatform indexed platform, address indexed walletAddress);
     event NativeAttested(NativeAttestPlatform indexed platform, bytes deviceIdentity);
 
@@ -125,5 +129,52 @@ contract AutomataPOMEntrypoint is Initializable, Ownable, POMEntrypoint {
             revert Duplicate_Attestation_Found();
         }
         proofBitmap.set(key);
+    }
+
+
+    function getDeviceFlags(bytes calldata deviceIdentity) public view returns (uint256 flags) {
+        bytes32 deviceHash = keccak256(deviceIdentity);
+        flags = 0;
+        if (world_deviceBinding[deviceHash] != 0) flags |= 1;
+    }
+
+    function world_bindDevice(bytes calldata deviceId, uint256 nullifierHash) external onlyOwner {
+        (AttestationStatus status,) = this.getNativeAttestationStatus(deviceId);
+        require(status == AttestationStatus.REGISTERED, "Unregistered device");
+
+        bytes32 oldDevice = world_nullifierHashes[nullifierHash];
+        bytes memory att = nativeAttData[oldDevice];
+        if (att.length > 0) {
+            NativeAttestationSchema memory nativeAttestation = abi.decode(att, (NativeAttestationSchema));
+            require(block.timestamp > nativeAttestation.expiry, "Duplicate binding"); 
+
+            // Clear expired device binding
+            world_deviceBinding[oldDevice] = 0;
+        }
+
+        bytes32 deviceHash = keccak256(deviceId);
+        uint256 oldNullifier = world_deviceBinding[deviceHash];
+        if (oldNullifier != 0) {
+            // Clear old nullifierHash binding
+            world_nullifierHashes[oldNullifier] = 0;
+        }
+
+        world_deviceBinding[deviceHash] = nullifierHash;
+        world_nullifierHashes[nullifierHash] = deviceHash;
+    }
+
+    function world_unbindDevice(bytes calldata deviceId) external onlyOwner() {
+        bytes32 deviceHash = keccak256(deviceId);
+        // (AttestationStatus status,) = this.getNativeAttestationStatus(deviceId);
+        // require(status == AttestationStatus.REGISTERED, "Unregistered device");
+        uint256 nullifierHash = world_deviceBinding[deviceHash];
+        world_deviceBinding[deviceHash] = 0;
+        world_nullifierHashes[nullifierHash] = 0;
+    }
+
+    function world_unbindNullifierHash(uint256 nullifierHash) external onlyOwner {
+        bytes32 deviceHash = world_nullifierHashes[nullifierHash];
+        world_deviceBinding[deviceHash] = 0;
+        world_nullifierHashes[nullifierHash] = 0;
     }
 }
