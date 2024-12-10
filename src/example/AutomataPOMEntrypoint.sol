@@ -19,6 +19,7 @@ import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.s
 
 using LibBitmap for LibBitmap.Bitmap;
 
+// TODO: change to AccessControl
 contract AutomataPOMEntrypoint is Initializable, Ownable, POMEntrypoint {
     using BytesUtils for bytes;
     using LibBitmap for LibBitmap.Bitmap;
@@ -34,8 +35,8 @@ contract AutomataPOMEntrypoint is Initializable, Ownable, POMEntrypoint {
     /// @notice the attestation id is the keccak256 hash of the device identity
     mapping(bytes32 attestationId => bytes attData) nativeAttData;
 
-    mapping(bytes32 deviceIdHash => uint256 nullifierHash) world_deviceBinding;
-    mapping(uint256 nullifierHash => bytes32 deviceIdHash) world_nullifierHashes;
+    mapping(bytes32 deviceIdHash => uint256 nullifierHash) public world_deviceBinding;
+    mapping(uint256 nullifierHash => bytes32 deviceIdHash) public world_nullifierHashes;
     // mapping world hash => bytes  additional info?
 
     event WebAuthNAttested(WebAuthNAttestPlatform indexed platform, address indexed walletAddress);
@@ -131,7 +132,6 @@ contract AutomataPOMEntrypoint is Initializable, Ownable, POMEntrypoint {
         proofBitmap.set(key);
     }
 
-
     function getDeviceFlags(bytes calldata deviceIdentity) public view returns (uint256 flags) {
         bytes32 deviceHash = keccak256(deviceIdentity);
         flags = 0;
@@ -146,7 +146,7 @@ contract AutomataPOMEntrypoint is Initializable, Ownable, POMEntrypoint {
         bytes memory att = nativeAttData[oldDevice];
         if (att.length > 0) {
             NativeAttestationSchema memory nativeAttestation = abi.decode(att, (NativeAttestationSchema));
-            require(block.timestamp > nativeAttestation.expiry, "Duplicate binding"); 
+            require(block.timestamp > nativeAttestation.expiry, "Duplicate binding");
 
             // Clear expired device binding
             world_deviceBinding[oldDevice] = 0;
@@ -163,7 +163,8 @@ contract AutomataPOMEntrypoint is Initializable, Ownable, POMEntrypoint {
         world_nullifierHashes[nullifierHash] = deviceHash;
     }
 
-    function world_unbindDevice(bytes calldata deviceId) external onlyOwner() {
+    // TODO: contract verify signature
+    function world_unbindDevice(bytes calldata deviceId) external onlyOwner {
         bytes32 deviceHash = keccak256(deviceId);
         // (AttestationStatus status,) = this.getNativeAttestationStatus(deviceId);
         // require(status == AttestationStatus.REGISTERED, "Unregistered device");
@@ -172,9 +173,10 @@ contract AutomataPOMEntrypoint is Initializable, Ownable, POMEntrypoint {
         world_nullifierHashes[nullifierHash] = 0;
     }
 
-    function world_unbindNullifierHash(uint256 nullifierHash) external onlyOwner {
-        bytes32 deviceHash = world_nullifierHashes[nullifierHash];
-        world_deviceBinding[deviceHash] = 0;
-        world_nullifierHashes[nullifierHash] = 0;
-    }
+    // Reserved
+    // function world_unbindNullifierHash(uint256 nullifierHash) external onlyOwner {
+    //     bytes32 deviceHash = world_nullifierHashes[nullifierHash];
+    //     world_deviceBinding[deviceHash] = 0;
+    //     world_nullifierHashes[nullifierHash] = 0;
+    // }
 }
