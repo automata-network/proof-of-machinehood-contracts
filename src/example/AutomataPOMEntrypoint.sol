@@ -12,18 +12,18 @@ import {
 
 import {BytesUtils} from "../utils/BytesUtils.sol";
 
-import {Ownable} from "solady/auth/Ownable.sol";
 import {LibBitmap} from "solady/utils/LibBitmap.sol";
 
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 using LibBitmap for LibBitmap.Bitmap;
 
-contract AutomataPOMEntrypoint is /* Unused */ Ownable, POMEntrypoint, AccessControlUpgradeable {
+contract AutomataPOMEntrypoint is POMEntrypoint, AccessControlUpgradeable {
     using BytesUtils for bytes;
     using LibBitmap for LibBitmap.Bitmap;
 
-    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+    // bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+    bytes32 public constant RELAYER_ROLE = 0xe2b7fb3b832174769106daebcfd6d1970523240dda11281102db9363b83b0dc4;
 
     mapping(WebAuthNAttestPlatform => address) _webAuthNVerifiers;
     mapping(NativeAttestPlatform => address) _nativeAttestVerifiers;
@@ -50,7 +50,7 @@ contract AutomataPOMEntrypoint is /* Unused */ Ownable, POMEntrypoint, AccessCon
         _disableInitializers();
     }
 
-    function initialize(address _admin) external initializer {
+    function initialize(address _admin) external reinitializer(2) {
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
     }
 
