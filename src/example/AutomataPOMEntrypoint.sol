@@ -15,14 +15,15 @@ import {BytesUtils} from "../utils/BytesUtils.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
 import {LibBitmap} from "solady/utils/LibBitmap.sol";
 
-import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 using LibBitmap for LibBitmap.Bitmap;
 
-// TODO: change to AccessControl
-contract AutomataPOMEntrypoint is Initializable, Ownable, POMEntrypoint {
+contract AutomataPOMEntrypoint is /* Unused */ Ownable, POMEntrypoint, AccessControlUpgradeable {
     using BytesUtils for bytes;
     using LibBitmap for LibBitmap.Bitmap;
+
+    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
 
     mapping(WebAuthNAttestPlatform => address) _webAuthNVerifiers;
     mapping(NativeAttestPlatform => address) _nativeAttestVerifiers;
@@ -37,7 +38,7 @@ contract AutomataPOMEntrypoint is Initializable, Ownable, POMEntrypoint {
 
     mapping(bytes32 deviceIdHash => uint256 nullifierHash) public world_deviceBinding;
     mapping(uint256 nullifierHash => bytes32 deviceIdHash) public world_nullifierHashes;
-    // mapping world hash => bytes  additional info?
+    // TBD mapping(uint256 nullifierHash => bytes ???) public world_extraInfo;
 
     event WebAuthNAttested(WebAuthNAttestPlatform indexed platform, address indexed walletAddress);
     event NativeAttested(NativeAttestPlatform indexed platform, bytes deviceIdentity);
@@ -49,15 +50,21 @@ contract AutomataPOMEntrypoint is Initializable, Ownable, POMEntrypoint {
         _disableInitializers();
     }
 
-    function initialize(address _owner) external initializer {
-        _initializeOwner(_owner);
+    function initialize(address _admin) external initializer {
+        _grantRole(DEFAULT_ADMIN_ROLE, _admin);
     }
 
-    function setWebAuthNVerifier(WebAuthNAttestPlatform platform, address verifier) external onlyOwner {
+    function setWebAuthNVerifier(WebAuthNAttestPlatform platform, address verifier)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         _webAuthNVerifiers[platform] = verifier;
     }
 
-    function setNativeAttVerifier(NativeAttestPlatform platform, address verifier) external onlyOwner {
+    function setNativeAttVerifier(NativeAttestPlatform platform, address verifier)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         _nativeAttestVerifiers[platform] = verifier;
     }
 
@@ -138,7 +145,7 @@ contract AutomataPOMEntrypoint is Initializable, Ownable, POMEntrypoint {
         if (world_deviceBinding[deviceHash] != 0) flags |= 1;
     }
 
-    function world_bindDevice(bytes calldata deviceId, uint256 nullifierHash) external onlyOwner {
+    function world_bindDevice(bytes calldata deviceId, uint256 nullifierHash) external onlyRole(RELAYER_ROLE) {
         (AttestationStatus status,) = this.getNativeAttestationStatus(deviceId);
         require(status == AttestationStatus.REGISTERED, "Unregistered device");
 
@@ -163,18 +170,18 @@ contract AutomataPOMEntrypoint is Initializable, Ownable, POMEntrypoint {
         world_nullifierHashes[nullifierHash] = deviceHash;
     }
 
-    // TODO: contract verify signature
-    function world_unbindDevice(bytes calldata deviceId) external onlyOwner {
-        bytes32 deviceHash = keccak256(deviceId);
-        // (AttestationStatus status,) = this.getNativeAttestationStatus(deviceId);
-        // require(status == AttestationStatus.REGISTERED, "Unregistered device");
-        uint256 nullifierHash = world_deviceBinding[deviceHash];
-        world_deviceBinding[deviceHash] = 0;
-        world_nullifierHashes[nullifierHash] = 0;
-    }
+    // TODO: contract verify signature, no need access ctrl
+    // function world_unbindDevice(bytes calldata deviceId) external {
+    //     bytes32 deviceHash = keccak256(deviceId);
+    //     // (AttestationStatus status,) = this.getNativeAttestationStatus(deviceId);
+    //     // require(status == AttestationStatus.REGISTERED, "Unregistered device");
+    //     uint256 nullifierHash = world_deviceBinding[deviceHash];
+    //     world_deviceBinding[deviceHash] = 0;
+    //     world_nullifierHashes[nullifierHash] = 0;
+    // }
 
     // Reserved
-    // function world_unbindNullifierHash(uint256 nullifierHash) external onlyOwner {
+    // function world_unbindNullifierHash(uint256 nullifierHash) external onlyRole() {
     //     bytes32 deviceHash = world_nullifierHashes[nullifierHash];
     //     world_deviceBinding[deviceHash] = 0;
     //     world_nullifierHashes[nullifierHash] = 0;
