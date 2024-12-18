@@ -160,25 +160,23 @@ contract AutomataPOMEntrypoint is POMEntrypoint, AccessControlUpgradeable {
         }
 
         bytes32 deviceHash = keccak256(deviceId);
-        uint256 oldNullifier = world_deviceBinding[deviceHash];
-        if (oldNullifier != 0) {
-            // Clear old nullifierHash binding
-            world_nullifierHashes[oldNullifier] = 0;
-        }
+        // Clear old nullifierHash binding
+        world_nullifierHashes[world_deviceBinding[deviceHash]] = 0;
 
         world_deviceBinding[deviceHash] = nullifierHash;
         world_nullifierHashes[nullifierHash] = deviceHash;
     }
 
     // TODO: contract verify signature, no need access ctrl
-    // function world_unbindDevice(bytes calldata deviceId) external {
-    //     bytes32 deviceHash = keccak256(deviceId);
-    //     // (AttestationStatus status,) = this.getNativeAttestationStatus(deviceId);
-    //     // require(status == AttestationStatus.REGISTERED, "Unregistered device");
-    //     uint256 nullifierHash = world_deviceBinding[deviceHash];
-    //     world_deviceBinding[deviceHash] = 0;
-    //     world_nullifierHashes[nullifierHash] = 0;
-    // }
+    // NOTE: temporarily add this for debug purpose, otherwise a device can only test once
+    function world_unbindDevice(bytes calldata deviceId) external onlyRole(RELAYER_ROLE) {
+        bytes32 deviceHash = keccak256(deviceId);
+        // (AttestationStatus status,) = this.getNativeAttestationStatus(deviceId);
+        // require(status == AttestationStatus.REGISTERED, "Unregistered device");
+        uint256 nullifierHash = world_deviceBinding[deviceHash];
+        world_deviceBinding[deviceHash] = 0;
+        world_nullifierHashes[nullifierHash] = 0;
+    }
 
     // Reserved
     // function world_unbindNullifierHash(uint256 nullifierHash) external onlyRole() {
