@@ -25,10 +25,10 @@ library DateTimeUtils {
             if (uint8(x509Time[0]) - 48 < 5) yrs += 2000;
             else yrs += 1900;
         } else {
-            yrs += (uint8(x509Time[0]) - 48) * 1000 + (uint8(x509Time[1]) - 48) * 100;
+            yrs += (uint8(x509Time[0]) - 48) * 1000 + (uint8(x509Time[1]) - 48) * uint16(100);
             offset = 2;
         }
-        yrs += (uint8(x509Time[offset + 0]) - 48) * 10 + uint8(x509Time[offset + 1]) - 48;
+        yrs += (uint8(x509Time[offset + 0]) - 48) * uint16(10) + uint8(x509Time[offset + 1]) - 48;
         mnths = (uint8(x509Time[offset + 2]) - 48) * 10 + uint8(x509Time[offset + 3]) - 48;
         dys += (uint8(x509Time[offset + 4]) - 48) * 10 + uint8(x509Time[offset + 5]) - 48;
         hrs += (uint8(x509Time[offset + 6]) - 48) * 10 + uint8(x509Time[offset + 7]) - 48;
