@@ -83,6 +83,9 @@ abstract contract AndroidNative is NativeX5CBase {
     /// Official CRL list can be fetched via https://android.googleapis.com/attestation/status
     function certIsRevoked(uint256 serialNum) public view virtual returns (bool);
 
+    /// @dev compares the provided root public key to match with the expected root public key
+    function checkRootPublicKey(bytes memory rootPublicKey) public view virtual returns (bool);
+
     /// @dev implement this method to specify the set of values that you expect the hardware-backed key to contain
     function _validateAttestation(BasicAttestationObject memory att) internal view virtual returns (bool);
 
@@ -92,6 +95,8 @@ abstract contract AndroidNative is NativeX5CBase {
      * @param payload is an array must contain the following in the CORRECT order:
      * - index 0: contains the x5c[] certificate chain, encoded in DER
      * - index 1: the signature that signs over sha256(deviceIdentity) with the attested key
+     * - index 2: the prover type (ZK or TEE)
+     * - index 3: the proof (zk proof or TEE signature)
      */
     function _verifyPayload(bytes calldata deviceIdentity, bytes[] calldata payload)
         internal
@@ -105,12 +110,6 @@ abstract contract AndroidNative is NativeX5CBase {
         // either contains the seal (zk proof) or TEE signature
         bytes memory proof = payload[3];
 
-        // Step 0: Check whether the root can be trusted
-        bool trusted = caIsTrusted(sha256(x5c[x5c.length - 1]));
-        if (!trusted) {
-            revert Untrusted_Root();
-        }
-
         bytes memory attestedPubKey;
         {
             // Step 1: Verify certificate chain
@@ -120,6 +119,7 @@ abstract contract AndroidNative is NativeX5CBase {
                 _checkTeeProof(x5c, proof);
             }
 
+            // Step 2: Verify the root and locate the attestation certificate
             (
                 bool attestationFound,
                 X509CertObj memory attestationCert,
@@ -132,7 +132,7 @@ abstract contract AndroidNative is NativeX5CBase {
             attestedPubKey = attestationCert.subjectPublicKey;
             expiry = attestationCert.validityNotAfter;
 
-            // Step 2: validate attestation details from the corresponding certificate
+            // Step 3: validate attestation details from the corresponding certificate
             BasicAttestationObject memory att = _parseAttestationExtension(attestationExtension, attestationPtr);
             bool attValidated = _validateAttestation(att);
             if (!attValidated) {
@@ -140,7 +140,7 @@ abstract contract AndroidNative is NativeX5CBase {
             }
         }
 
-        // Step 3: validate Android_ID
+        // Step 4: validate Android_ID
         bool sigVerified = _verifySignedChallenge(_process(attestedPubKey, 64), deviceIdentity, signature);
         if (!sigVerified) {
             revert Invalid_Android_Id();
@@ -170,9 +170,9 @@ abstract contract AndroidNative is NativeX5CBase {
             bytes memory attestationExtension
         )
     {
-        // Step 1: check if the root contains the trusted key
+        uint256 n = x5c.length;
         bool provisiongFound;
-        for (uint256 i = x5c.length - 1; i >= 0;) {
+        for (uint256 i = n - 1; i >= 0;) {
             X509CertObj memory currentSubject = X509Helper.parseX509DER(x5c[i]);
 
             // check crl
@@ -185,6 +185,18 @@ abstract contract AndroidNative is NativeX5CBase {
             if (block.timestamp < currentSubject.validityNotBefore || block.timestamp > currentSubject.validityNotAfter)
             {
                 revert("expired certificate found");
+            }
+            
+            // check if the root contains the trusted key
+            if (i == n - 1) {
+                bool rootTrusted = caIsTrusted(sha256(x5c[i]));
+                if (!rootTrusted) {
+                    // check public key
+                    bool rootKeyVerified = checkRootPublicKey(currentSubject.subjectPublicKey);
+                    if (!rootKeyVerified) {
+                        revert Untrusted_Root();
+                    }
+                }
             }
 
             // Check for attestation extension

@@ -6,6 +6,11 @@ import {Ownable} from "solady/auth/Ownable.sol";
 import {X509ChainVerifier} from "@automata-network/risc0-zk-x509/X509ChainVerifier.sol";
 
 contract AutomataAndroidNativePOM is AndroidNative, Ownable {
+
+    /// @notice the root public key is the keccak256 hash of abi-encoded tuple consists of (e, n) of the RSA public key
+    /// https://developer.android.com/privacy-and-security/security-key-attestation#root_certificate
+    bytes32 constant ANDROID_ROOT_CERTIFICATE_PUBLIC_KEY_HASH = 0x44a4f06250b05b1c9b1d2a74cb8a525ef2a45ae36baf767c9ce0ae7f38889fb0;
+    
     string public packageName;
 
     mapping(uint256 => bool) _serialNumRevoked;
@@ -60,6 +65,11 @@ contract AutomataAndroidNativePOM is AndroidNative, Ownable {
 
     function setPackageName(string calldata _packageName) external onlyOwner {
         packageName = _packageName;
+    }
+
+    
+    function checkRootPublicKey(bytes memory rootPublicKey) public pure override returns (bool) {
+        return keccak256(rootPublicKey) == ANDROID_ROOT_CERTIFICATE_PUBLIC_KEY_HASH;
     }
 
     /// @dev essentially configures which KeyMaster version that the contract allows
