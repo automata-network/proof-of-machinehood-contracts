@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
-import {ISigVerifyLib} from "./utils/interfaces/ISigVerifyLib.sol";
-import {IDerParser} from "./utils/interfaces/IDerParser.sol";
+import {ISigVerifyLib} from "../utils/interfaces/ISigVerifyLib.sol";
+import {IDerParser} from "../utils/interfaces/IDerParser.sol";
 import {Ownable, Base64, JSONParserLib, LibString} from "solady/Milady.sol";
 
 /**

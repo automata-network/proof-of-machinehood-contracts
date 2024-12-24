@@ -2,13 +2,13 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
-import "./AndroidSafetyNetConstants.sol";
-import "../../src/AndroidSafetyNet.sol";
-import "../../src/utils/DerParser.sol";
-import "../../src/utils/SigVerifyLib.sol";
+import "./WindowsTPMConstants.sol";
+import "../../../src/webauthn/WindowsTPM.sol";
+import "../../../src/utils/DerParser.sol";
+import "../../../src/utils/SigVerifyLib.sol";
 
-contract AndroidSafetyNetTest is Test, AndroidSafetyNetConstants {
-    AndroidSafetyNet attestationContract;
+contract WindowsTPMTest is Test, WindowsTPMConstants {
+    WindowsTPM attestationContract;
     DerParser derParser;
     SigVerifyLib sigVerify;
 
@@ -19,18 +19,19 @@ contract AndroidSafetyNetTest is Test, AndroidSafetyNetConstants {
 
         derParser = new DerParser();
         sigVerify = new SigVerifyLib();
-        attestationContract = new AndroidSafetyNet(address(sigVerify), address(derParser));
+        attestationContract = new WindowsTPM(address(sigVerify), address(derParser));
         attestationContract.addCACert(certHash);
 
         vm.stopPrank();
 
         // Bypass Expired Certificate reverts
-        // October 16th, 2023, 10:25:22AM GMT+8
-        vm.warp(1697423122);
+        // October 12th, 2023, 12:30:00 GMT+8
+        vm.warp(1697085000);
     }
 
-    function testAndroidSafetyNetAttestation() public {
-        bytes memory challenge = hex"000000000000000000000000c6219fd7c54c963a7ef13e04ef0f0d96ff826450";
+    function testWindowsTPMAttestation() public {
+        address wallet = 0x64188ea52BaF4B724E658036A339facC4F2ed723;
+        bytes memory challenge = abi.encode(wallet);
         (bool verified,) = attestationContract.verifyAttStmt(challenge, encodedAttStmt, authData, clientDataJSON);
         assertTrue(verified);
     }

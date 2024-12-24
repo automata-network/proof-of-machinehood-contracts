@@ -1,2 +1,4 @@
 solady/=lib/solady/src/
 p256-verifier/=lib/p256-verifier/src/
+@automata-network/risc0-zk-x509/=lib/risc0-zk-x509/contracts/
+@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/

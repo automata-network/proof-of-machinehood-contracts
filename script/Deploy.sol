@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "../src/AndroidSafetyNet.sol";
-import "../src/WindowsTPM.sol";
-import "../src/Yubikey.sol";
+import "../src/webauthn/AndroidSafetyNet.sol";
+import "../src/webauthn/WindowsTPM.sol";
+import "../src/webauthn/Yubikey.sol";
 
 import "forge-std/Script.sol";
 
@@ -11,7 +11,6 @@ import "forge-std/Script.sol";
 // import "./deployment/LibScript.sol";
 
 contract Deploy is Script {
-
     uint256 internal privateKey = vm.envUint("PRIVATE_KEY");
     address sigVerifyLib = vm.envAddress("SIG_VERIFY_LIB");
     address derParser = vm.envAddress("DER_PARSER");
@@ -20,8 +19,16 @@ contract Deploy is Script {
         vm.startBroadcast(privateKey);
         AndroidSafetyNet attestation = new AndroidSafetyNet(sigVerifyLib, derParser);
 
+        // Issuer: GTS Root R1
+        // Subject: GTS CA 104
         bytes32 certHash = 0xb9d623ec16695de2060578bef9e4df7966f57c618bc5ea62634976f15296ff15;
         attestation.addCACert(certHash);
+
+        // Issuer: GlobalSign RootCA
+        // Subject: GTS Root R1
+        bytes32 rootHash = 0x333cfe96a08b17e6221d85230c42cac1aedb8558ba3558bc94820a828147c978;
+        attestation.addCACert(rootHash);
+
         vm.stopBroadcast();
 
         console.log("[LOG] AndroidSafetyNet: ", address(attestation));
