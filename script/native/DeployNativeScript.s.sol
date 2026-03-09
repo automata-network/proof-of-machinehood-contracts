@@ -24,8 +24,10 @@ contract DeployNativeScript is Script {
         vm.startBroadcast(privateKey);
         android = new AutomataAndroidNativePOM(sigVerifyLib, x509Risc0);
 
-        bytes32 rootHash = 0x1ef1a04b8ba58ab94589ac498c8982a783f24ea7307e0159a0c3a73b377d87cc;
-        android.addCACert(rootHash);
+        // known hashes
+        android.addCACert(0x1ef1a04b8ba58ab94589ac498c8982a783f24ea7307e0159a0c3a73b377d87cc);
+        android.addCACert(0xcedb1cb6dc896ae5ec797348bce9286753c2b38ee71ce0fbe34a9a1248800dfc);
+        android.addCACert(0xab6641178a36e179aa0c1cdddf9a16eb45fa20943e2b8cd7c7c05c26cf8b487a);
 
         vm.stopBroadcast();
     }

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/Script.sol";
+import "../../src/native/base/NativeX5CBase.sol";
 import "../../src/example/AutomataAndroidNativePOM.sol";
 import "../../src/example/AutomataIosNativePOM.sol";
 import "../../src/example/AutomataMacNativePOM.sol";
@@ -12,6 +13,8 @@ interface IX509 {
     function removeCACert(bytes32 hash) external;
 
     function setTrustedTee(address tee, bool trusted) external;
+
+    function updateX509Verifier(address _x509Verifier) external;
 }
 
 contract ConfigNativeScript is Script {
@@ -19,11 +22,16 @@ contract ConfigNativeScript is Script {
     AutomataIosNativePOM ios = AutomataIosNativePOM(vm.envAddress("NATIVE_IOS_ADDRESS"));
     AutomataAndroidNativePOM android = AutomataAndroidNativePOM(vm.envAddress("NATIVE_ANDROID_ADDRESS"));
     uint256 privateKey = vm.envUint("PRIVATE_KEY");
+    address x509Risc0 = vm.envAddress("RISC0_X509_VERIFIER");
 
     modifier broadcastKey() {
         vm.startBroadcast(privateKey);
         _;
         vm.stopBroadcast();
+    }
+
+    function updateX509(NativeX5CBase native) public broadcastKey {
+        native.updateX509Verifier(x509Risc0);
     }
 
     function configMac(address signerKey, bool trusted) public broadcastKey {

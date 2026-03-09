@@ -1,0 +1,17 @@
+{
+  "lib/forge-std": {
+    "rev": "f73c73d2018eb6a111f35e4dae7b4f27401e9421"
+  },
+  "lib/openzeppelin-contracts": {
+    "rev": "dbb6104ce834628e473d2173bbc9d47f81a9eec3"
+  },
+  "lib/p256-verifier": {
+    "rev": "fcaa173c36e6a0fd55370f74f949998356869b2c"
+  },
+  "lib/risc0-zk-x509": {
+    "rev": "dd7c039cb4ab6f845e4e269c2e88b995575a8c25"
+  },
+  "lib/solady": {
+    "rev": "23cb3cb13ea32bc94d9d136666090b36d0485e1c"
+  }
+}
