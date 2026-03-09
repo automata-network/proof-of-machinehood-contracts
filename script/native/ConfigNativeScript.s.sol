@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "forge-std/Script.sol";
+import "../utils/DeploymentConfig.sol";
 import "../../src/native/base/NativeX5CBase.sol";
 import "../../src/example/AutomataAndroidNativePOM.sol";
 import "../../src/example/AutomataIosNativePOM.sol";
@@ -17,15 +17,15 @@ interface IX509 {
     function updateX509Verifier(address _x509Verifier) external;
 }
 
-contract ConfigNativeScript is Script {
-    AutomataMacNativePOM mac = AutomataMacNativePOM(vm.envAddress("NATIVE_MACOS_ADDRESS"));
-    AutomataIosNativePOM ios = AutomataIosNativePOM(vm.envAddress("NATIVE_IOS_ADDRESS"));
-    AutomataAndroidNativePOM android = AutomataAndroidNativePOM(vm.envAddress("NATIVE_ANDROID_ADDRESS"));
-    uint256 privateKey = vm.envUint("PRIVATE_KEY");
-    address x509Risc0 = vm.envAddress("RISC0_X509_VERIFIER");
+contract ConfigNativeScript is DeploymentConfig {
+    AutomataMacNativePOM mac = AutomataMacNativePOM(readContractAddress("AutomataMacNativePOM", true));
+    AutomataIosNativePOM ios = AutomataIosNativePOM(readContractAddress("AutomataIosNativePOM", true));
+    AutomataAndroidNativePOM android = AutomataAndroidNativePOM(readContractAddress("AutomataAndroidNativePOM", true));
+    address deployer = vm.envAddress("DEPLOYER");
+    address x509Risc0 = readContractAddress("X509ChainVerifier", true);
 
     modifier broadcastKey() {
-        vm.startBroadcast(privateKey);
+        vm.startBroadcast(deployer);
         _;
         vm.stopBroadcast();
     }

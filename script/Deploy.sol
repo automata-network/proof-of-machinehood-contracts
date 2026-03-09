@@ -4,19 +4,21 @@ pragma solidity ^0.8.0;
 import "../src/webauthn/AndroidSafetyNet.sol";
 import "../src/webauthn/WindowsTPM.sol";
 import "../src/webauthn/Yubikey.sol";
+import "./utils/DeploymentConfig.sol";
 
-import "forge-std/Script.sol";
+contract Deploy is DeploymentConfig {
+    address deployer = vm.envAddress("DEPLOYER");
+    address sigVerifyLib = readContractAddress("SigVerifyLib", true);
+    address derParser = readContractAddress("DerParser", true);
 
-// use .env addresses for now
-// import "./deployment/LibScript.sol";
-
-contract Deploy is Script {
-    uint256 internal privateKey = vm.envUint("PRIVATE_KEY");
-    address sigVerifyLib = vm.envAddress("SIG_VERIFY_LIB");
-    address derParser = vm.envAddress("DER_PARSER");
+    function run() public {
+        deployAndroidSafetyNet();
+        deployWindowsTPM();
+        deployYubikey();
+    }
 
     function deployAndroidSafetyNet() public {
-        vm.startBroadcast(privateKey);
+        vm.startBroadcast(deployer);
         AndroidSafetyNet attestation = new AndroidSafetyNet(sigVerifyLib, derParser);
 
         // Issuer: GTS Root R1
@@ -35,7 +37,7 @@ contract Deploy is Script {
     }
 
     function deployWindowsTPM() public {
-        vm.startBroadcast(privateKey);
+        vm.startBroadcast(deployer);
         WindowsTPM attestation = new WindowsTPM(sigVerifyLib, derParser);
 
         bytes32 certHash = 0x0ef49ca16946643d989b177d16eead1db8992f51b1046bb7a0177d6650d8f23f;
@@ -46,7 +48,7 @@ contract Deploy is Script {
     }
 
     function deployYubikey() public {
-        vm.startBroadcast(privateKey);
+        vm.startBroadcast(deployer);
         Yubikey attestation = new Yubikey(sigVerifyLib, derParser);
 
         bytes32 certHash = 0x18c535288d76f1259167f42ff52cd5516e5ac0900d5708fd8e6e6276e64fda12;
