@@ -11,3 +11,6 @@ evm_version = "paris"
 fs_permissions = [{ access = "read-write", path = "./"}]
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+
+[rpc_endpoints]
+ata = "https://1rpc.io/ata/testnet"
