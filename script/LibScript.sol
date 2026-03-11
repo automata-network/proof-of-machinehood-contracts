@@ -47,4 +47,14 @@ contract LibScript is DeploymentConfig {
 
         writeToJson("X509ChainVerifier", address(x509Verifier));
     }
+
+    function updateX509VerifierImageId(bytes32 newImageId) public {
+        address x509VerifierAddress = readContractAddress("X509ChainVerifier", true);
+        X509ChainVerifier x509Verifier = X509ChainVerifier(x509VerifierAddress);
+        vm.startBroadcast(deployer);
+        x509Verifier.setImageId(newImageId);
+        console.log("[LOG] Updated X509ChainVerifier Image ID to: ");
+        console.logBytes32(newImageId);
+        vm.stopBroadcast();
+    }
 }
