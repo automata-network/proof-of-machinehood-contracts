@@ -12,46 +12,38 @@ contract EntrypointScript is DeploymentConfig {
     address deployer = vm.envAddress("DEPLOYER");
     address adminOwner = vm.envAddress("PROXY_ADMIN_OWNER");
 
-    function deployEntrypointImpl() public {
-        vm.broadcast(deployer);
+    function _deployEntrypointImpl(address broadcaster) internal {
+        vm.broadcast(broadcaster);
         entrypoint = new AutomataPOMEntrypoint();
         writeToJson("AutomataPOMEntrypointImpl", address(entrypoint));
     }
 
     function deployEntrypoint(address impl) public {
-        vm.broadcast(deployer);
         if (impl == address(0) && readContractAddress("AutomataPOMEntrypointImpl", false) == address(0)) {
-            entrypoint = new AutomataPOMEntrypoint();
-            writeToJson("AutomataPOMEntrypointImpl", address(entrypoint));
+            _deployEntrypointImpl(deployer);
         } else {
             entrypoint = AutomataPOMEntrypoint(impl);
         }
 
         bytes memory initData = abi.encodeWithSelector(AutomataPOMEntrypoint.initialize.selector, deployer);
 
-        vm.broadcast(adminOwner);
+        vm.broadcast(deployer);
         proxy = new TransparentUpgradeableProxy(address(entrypoint), adminOwner, initData);
         writeToJson("AutomataPOMEntrypointProxy", address(proxy));
     }
 
     function upgradeEntrypoint(address implAddr, bytes memory data) public {
-        address entrypointAddr;
         if (implAddr == address(0)) {
-            entrypoint = new AutomataPOMEntrypoint();
-            writeToJson("AutomataPOMEntrypointImpl", address(entrypoint));
-            entrypointAddr = address(entrypoint);
-        } else {
-            entrypointAddr = implAddr;
+            _deployEntrypointImpl(adminOwner);
+            implAddr = address(entrypoint);
         }
         address proxyAdminAddr = readContractAddress("ProxyAdmin", true);
+        address proxyAddr = readContractAddress("AutomataPOMEntrypointProxy", true);
 
         ProxyAdmin proxyAdmin = ProxyAdmin(proxyAdminAddr);
 
         vm.startBroadcast(adminOwner);
-
-        AutomataPOMEntrypoint impl = new AutomataPOMEntrypoint();
-        proxyAdmin.upgradeAndCall(ITransparentUpgradeableProxy(entrypointAddr), address(impl), data);
-    
+        proxyAdmin.upgradeAndCall(ITransparentUpgradeableProxy(proxyAddr), address(implAddr), data);
         vm.stopBroadcast();
     }
 
